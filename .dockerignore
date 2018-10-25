@@ -1,0 +1,6 @@
+.git
+.idea
+*.swp
+pkg/generated
+Dockerfile
+_build
