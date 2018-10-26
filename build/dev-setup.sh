@@ -7,10 +7,10 @@ LOG() {
   "$@"
 }
 
-golangci_lint_url=https://github.com/golangci/golangci-lint/releases/download/v1.9.1/golangci-lint-1.9.1-$(go env GOOS)-amd64.tar.gz
+golangci_lint_url=https://github.com/golangci/golangci-lint/releases/download/v1.10.2/golangci-lint-1.10.2-$(go env GOOS)-amd64.tar.gz
 tmpdir=$(mktemp -d)
 curl -L "${golangci_lint_url}" | ( cd $tmpdir && tar xzf - )
-mv $tmpdir/golangci-lint-1.9.1-$(go env GOOS)-amd64/golangci-lint $GOPATH/bin/
+mv $tmpdir/golangci-lint-1.10.2-$(go env GOOS)-amd64/golangci-lint $GOPATH/bin/
 rm -rf "$tmpdir"
 
 LOG dep ensure -vendor-only
