@@ -1,0 +1,78 @@
+# Install via:
+# CA_BUNDLE=$(kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n') envsubst < install/tce.yaml | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tce
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: tce
+  namespace: tce
+  labels:
+    app: tce
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tce
+    spec:
+      containers:
+        - name: tce
+          image: quay.io/aspenmesh/wip:andrew-tce-latest
+          imagePullPolicy: Always
+          args:
+            - tce
+            - -tlsCertFile=/etc/webhook/certs/cert.pem
+            - -tlsKeyFile=/etc/webhook/certs/key.pem
+            - -alsologtostderr
+            - -v=4
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/webhook/certs
+              readOnly: true
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: tce-webhook-certs
+      imagePullSecrets:
+        - name: aspenmesh-infrajenkins-pull-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tce-webhook
+  namespace: tce
+  labels:
+    app: tce
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+  selector:
+    app: tce
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: tce
+  labels:
+    app: tce
+webhooks:
+  - name: tce.aspenmesh.io
+    clientConfig:
+      service:
+        name: tce-webhook
+        namespace: tce
+        path: "/validate"
+      caBundle: ${CA_BUNDLE}
+    rules:
+      - operations: [ "CREATE", "UPDATE" ]
+        apiGroups: ["networking.istio.io"]
+        apiVersions: ["*"]
+        resources: ["virtualservices"]
+    namespaceSelector:
+      matchLabels:
+        tce: enabled
