@@ -3,6 +3,8 @@ export PACKAGE  := github.com/aspenmesh/tce
 GOOS     = $(shell go env GOOS)
 GOARCH   = $(shell go env GOARCH)
 GOBIN = $(GOPATH)/bin/$(GOOS)-$(GOARCH)
+BOILERPLATE := pkg/api/aspenmesh-boilerplate.go.txt
+GROUP_VERSIONS := "networking:v1alpha3"
 
 GO_BUILD_FLAGS=-v
 
@@ -13,6 +15,8 @@ GO_BUILD_FLAGS=-v
 ALL_PKGS      := ./cmd/... ./pkg/...
 # TEST_PKGS     := $(shell go list -f '{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' $(ALL_PKGS) | sed 's,^_$(CURDIR),$(PACKAGE),')
 TEST_PKGS     := ./pkg/...
+
+PROTO_FILES  := pkg/api/networking/v1alpha3/trafficclaim.proto
 
 
 # Empty string to allow clean multi-line lists
@@ -115,6 +119,7 @@ build/pre-build-deps.txt:
 clean:
 	rm -rf _build; mkdir _build
 	rm -rf pkg/generated
+	rm -rf pkg/client
 
 info:
 	@echo "ALL_PKGS: $(ALL_PKGS)"
@@ -127,7 +132,7 @@ info:
 #   The following targets are supporting targets for the publicly maintained
 #   targets above. Publicly maintained targets above are always provided.
 ############################################################################
-go-build: _build/dev-setup.ok
+go-build: _build/dev-setup.ok _build/generated-crd
 	go install $(GO_BUILD_FLAGS) $(ALL_PKGS)
 
 # cross compile. Pattern is: CMD-GOOS-GOARCH
@@ -164,8 +169,17 @@ fmt:
 lint:
 	golangci-lint run
 
-.PHONY: always-build docs image push-image go-test go-build fmt lint
+_build/generated-crd: $(PROTO_FILES) $(BOILERPLATE)
+	protoc --go_out=$(GOPATH)/src $(PROTO_FILES)
+	./vendor/k8s.io/code-generator/generate-groups.sh all \
+		$(PACKAGE)/pkg/client \
+		$(PACKAGE)/pkg/api \
+		$(GROUP_VERSIONS) \
+		--go-header-file $(BOILERPLATE)
+	touch _build/generated-crd
 
 _build/coverage.html: _build/coverage.out
 	go tool cover -html=$< -o $@
 	go tool cover -func=$<
+
+.PHONY: always-build docs image push-image go-test go-build fmt lint

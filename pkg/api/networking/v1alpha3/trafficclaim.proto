@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package aspenmesh.networking.v1alpha3;
+option go_package = "github.com/aspenmesh/tce/pkg/api/networking/v1alpha3";
+
+message Claim {
+  // REQUIRED.  The destination hosts to which traffic is being sent that are
+  // claimed by this namespace.
+  repeated string hosts = 1;
+
+  // The destination ports (inside of the hosts) that are being claimed (if
+  // present)
+  repeated uint32 ports = 2;
+
+  // Details about the HTTP paths that are being claimed (if present)
+  Http http = 3;
+}
+
+message Http {
+  // The HTTP paths (inside of hosts and ports) that are being claimed
+  Paths paths = 1;
+}
+
+message Paths {
+  // A path that must match exactly to this claim
+  repeated string exact = 1;
+
+  // All paths that start with this prefix are claimed
+  repeated string prefix = 2;
+}

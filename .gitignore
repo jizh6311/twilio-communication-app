@@ -1,3 +1,6 @@
 vendor/
 _build/
 build/pre-build-deps.txt
+*.pb.go
+pkg/client
+zz_*.go

@@ -22,6 +22,7 @@
 required = [
   "github.com/onsi/ginkgo/ginkgo",
   "github.com/wadey/gocovmerge",
+  "k8s.io/code-generator/cmd/client-gen"
 ]
 
 # We need to specify fsnotify source to avoid dep panic
@@ -45,6 +46,10 @@ required = [
 
 [[constraint]]
   name = "k8s.io/apimachinery"
+  branch = "release-1.11"
+
+[[constraint]]
+  name = "k8s.io/code-generator"
   branch = "release-1.11"
 
 #[[constraint]]
