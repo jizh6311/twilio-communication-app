@@ -1,0 +1,16 @@
+kind: TrafficClaim
+apiVersion: networking.aspenmesh.io/v1alpha3
+metadata:
+  name: allow-bofa
+  namespace: tce-test
+claims:
+# Anything on www.bofa.com
+- hosts: [ "www.bofa.com" ]
+
+# Only specific paths on foo.com, bar.com
+- hosts: [ "foo.com", "bar.com" ]
+  ports: [ 80, 443, 8080 ]
+  http:
+    paths:
+      exact: [ "/admin/login" ]
+      prefix: [ "/products" ]

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/aspenmesh/tce/pkg/tce/webhook"
+	"github.com/aspenmesh/tce/pkg/trafficclaim"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
@@ -52,8 +53,14 @@ func Execute() {
 		glog.Fatalf("Failed to load x509 cert/key pair: %v", err)
 	}
 
+	kubeclient, err := trafficclaim.CreateInterface("")
+	if err != nil {
+		glog.Fatalf("Failed to create a kubernetes client: %v", err)
+	}
+	claimDb := trafficclaim.NewDb(kubeclient)
+
 	mux := http.NewServeMux()
-	if _, err := webhook.NewWebhookServer(mux); err != nil {
+	if _, err := webhook.NewWebhookServer(mux, claimDb); err != nil {
 		glog.Fatalf("Failed to create webhook server: %v", err)
 
 	}

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/aspenmesh/tce/pkg/trafficclaim"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	pilotCrd "istio.io/istio/pilot/pkg/config/kube/crd"
@@ -28,12 +29,14 @@ type WebhookServer interface {
 }
 
 type webhookServer struct {
-	mux *http.ServeMux
+	mux     *http.ServeMux
+	claimDb trafficclaim.Db
 }
 
-func NewWebhookServer(m *http.ServeMux) (WebhookServer, error) {
+func NewWebhookServer(m *http.ServeMux, c trafficclaim.Db) (WebhookServer, error) {
 	whs := &webhookServer{
-		mux: m,
+		mux:     m,
+		claimDb: c,
 	}
 	m.HandleFunc("/validate", whs.Serve)
 	return whs, nil
