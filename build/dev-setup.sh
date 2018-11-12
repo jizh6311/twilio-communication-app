@@ -20,6 +20,8 @@ LOG go install -v \
   ./vendor/github.com/onsi/ginkgo/ginkgo
 LOG go install -v \
   ./vendor/github.com/golang/protobuf/protoc-gen-go
+LOG go install -v \
+  ./vendor/github.com/golang/mock/mockgen
 
 mkdir -p _build
 touch _build/dev-setup.ok

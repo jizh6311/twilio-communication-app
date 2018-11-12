@@ -70,6 +70,15 @@ push-image: image
 	docker push $(TCE_TAG)
 
 #
+# Generate mocks for testing
+#
+MOCK_PATHS = pkg/trafficclaim/trafficclaim.go
+
+_build/generate-mocks.ok: _build/dev-setup.ok $(MOCK_PATHS)
+	go generate ./pkg/...
+	touch _build/generate-mocks.ok
+
+#
 # Run unit tests
 #
 test: go-test
@@ -132,7 +141,7 @@ info:
 #   The following targets are supporting targets for the publicly maintained
 #   targets above. Publicly maintained targets above are always provided.
 ############################################################################
-go-build: _build/dev-setup.ok _build/generated-crd
+go-build: _build/dev-setup.ok _build/generated-crd _build/generate-mocks.ok
 	go install $(GO_BUILD_FLAGS) $(ALL_PKGS)
 
 # cross compile. Pattern is: CMD-GOOS-GOARCH
@@ -143,7 +152,7 @@ _build/cross/%: always-build
 
 go-test: _build/coverage.out
 
-_build/coverage.out: $(GENERATED) _build/dev-setup.ok always-build
+_build/coverage.out: $(GENERATED) _build/dev-setup.ok _build/generate-mocks.ok always-build
 	@mkdir -p $(@D)
 	ginkgo -r  \
 	  --randomizeAllSpecs \

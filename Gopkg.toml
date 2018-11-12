@@ -22,7 +22,8 @@
 required = [
   "github.com/onsi/ginkgo/ginkgo",
   "github.com/wadey/gocovmerge",
-  "k8s.io/code-generator/cmd/client-gen"
+  "k8s.io/code-generator/cmd/client-gen",
+  "github.com/golang/mock/mockgen",
 ]
 
 # We need to specify fsnotify source to avoid dep panic
