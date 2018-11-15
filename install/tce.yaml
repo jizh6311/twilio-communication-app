@@ -73,7 +73,9 @@ webhooks:
       - operations: [ "CREATE", "UPDATE" ]
         apiGroups: ["networking.istio.io"]
         apiVersions: ["*"]
-        resources: ["virtualservices"]
+        resources:
+          - virtualservices
+          - gateways
     namespaceSelector:
       matchLabels:
         tce: enabled
