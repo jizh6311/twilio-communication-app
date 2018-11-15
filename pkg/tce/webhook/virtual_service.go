@@ -35,6 +35,10 @@ func validateVirtualService(ns string, s *webhookServer, spec proto.Message) err
 	if !ok {
 		return fmt.Errorf("Failed to use spec as VirtualService")
 	}
+	v, err := s.claimDb.NewVerification(ns)
+	if err != nil {
+		return err
+	}
 
 	hosts := vs.GetHosts()
 
@@ -47,8 +51,8 @@ func validateVirtualService(ns string, s *webhookServer, spec proto.Message) err
 		// a claim allowing config for the whole host is required.
 		if len(matches) == 0 {
 			for _, h := range hosts {
-				config := trafficclaim.Config{Namespace: ns, Host: h}
-				if !s.claimDb.IsConfigAllowed(&config) {
+				config := trafficclaim.Config{Host: h}
+				if !v.IsConfigAllowed(&config) {
 					return noClaimError(ns, &config)
 				}
 			}
@@ -59,8 +63,7 @@ func validateVirtualService(ns string, s *webhookServer, spec proto.Message) err
 		}
 
 		for _, match := range matches {
-			config := trafficclaim.Config{Namespace: ns}
-
+			config := trafficclaim.Config{}
 			if uri := match.GetUri(); uri != nil {
 				switch u := uri.MatchType.(type) {
 				case *networking.StringMatch_Exact:
@@ -82,7 +85,7 @@ func validateVirtualService(ns string, s *webhookServer, spec proto.Message) err
 
 			for _, h := range hosts {
 				config.Host = h
-				if !s.claimDb.IsConfigAllowed(&config) {
+				if !v.IsConfigAllowed(&config) {
 					return noClaimError(ns, &config)
 				}
 			}

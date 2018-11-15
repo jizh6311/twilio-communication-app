@@ -81,16 +81,29 @@ func newPortPathVs(host string, port uint32, paths ...string) *networking.Virtua
 	return newMultiRouteVs(host, matches...)
 }
 
+// We don't use mocking for this because its only job in life is to return
+// a mock verification - that's the thing we care about.
+type mmockDb struct {
+	v *trafficclaim.MockVerification
+}
+
+func (m *mmockDb) NewVerification(ns string) (trafficclaim.Verification, error) {
+	Expect(ns).To(Equal("tce-test"))
+	return m.v, nil
+}
+
 var _ = Describe("validate VirtualService", func() {
 	var (
 		mockCtrl *gomock.Controller
-		mockDb   *trafficclaim.MockDb
+		mockV    *trafficclaim.MockVerification
+		mockDb   *mmockDb
 		server   *webhookServer
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockDb = trafficclaim.NewMockDb(mockCtrl)
+		mockV = trafficclaim.NewMockVerification(mockCtrl)
+		mockDb = &mmockDb{v: mockV}
 		server = &webhookServer{claimDb: mockDb}
 	})
 
@@ -103,17 +116,15 @@ var _ = Describe("validate VirtualService", func() {
 	}
 
 	expectHostAllowed := func(host string) *gomock.Call {
-		return mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-			Namespace: "tce-test",
-			Host:      host,
+		return mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+			Host: host,
 		})
 	}
 
 	expectPortAllowed := func(host string, port uint32) *gomock.Call {
-		return mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-			Namespace: "tce-test",
-			Host:      host,
-			Port:      port,
+		return mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+			Host: host,
+			Port: port,
 		})
 	}
 
@@ -154,14 +165,12 @@ var _ = Describe("validate VirtualService", func() {
 	portPathVs := newPortPathVs("foo.example.com", 80, "/path1", "/path2")
 	It("passes if all ports pass", func() {
 		gomock.InOrder(
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.example.com",
 				Port:      80,
 				ExactPath: "/path1",
 			}).Return(true),
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.example.com",
 				Port:      80,
 				ExactPath: "/path2",
@@ -172,14 +181,12 @@ var _ = Describe("validate VirtualService", func() {
 
 	It("fails if any ports fail", func() {
 		gomock.InOrder(
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.example.com",
 				Port:      80,
 				ExactPath: "/path1",
 			}).Return(true),
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.example.com",
 				Port:      80,
 				ExactPath: "/path2",
@@ -211,20 +218,17 @@ var _ = Describe("validate VirtualService", func() {
 	mixedPathVs := newMultiRouteVs("foo.com", mixedPathMatches...)
 	It("checks combinations of exact and prefix paths", func() {
 		gomock.InOrder(
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.com",
 				Port:      80,
 				ExactPath: "/exact1",
 			}).Return(true),
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace:  "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:       "foo.com",
 				Port:       80,
 				PrefixPath: "/prefix/path",
 			}).Return(true),
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.com",
 				Port:      443,
 				ExactPath: "/prefix/exact2",

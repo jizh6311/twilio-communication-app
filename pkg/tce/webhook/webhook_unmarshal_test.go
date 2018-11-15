@@ -22,13 +22,15 @@ func isAllowed(review *admitv1beta1.AdmissionReview) bool {
 var _ = Describe("unmarshaller", func() {
 	var (
 		mockCtrl *gomock.Controller
-		mockDb   *trafficclaim.MockDb
+		mockV    *trafficclaim.MockVerification
+		mockDb   *mmockDb
 		server   *webhookServer
 	)
 
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
-		mockDb = trafficclaim.NewMockDb(mockCtrl)
+		mockV = trafficclaim.NewMockVerification(mockCtrl)
+		mockDb = &mmockDb{v: mockV}
 		server = &webhookServer{claimDb: mockDb}
 	})
 
@@ -38,20 +40,17 @@ var _ = Describe("unmarshaller", func() {
 
 	It("handles golden VirtualService", func() {
 		gomock.InOrder(
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.com",
 				Port:      80,
 				ExactPath: "/admin/login",
 			}).Return(true),
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace:  "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:       "foo.com",
 				Port:       80,
 				PrefixPath: "/products/goodproducts",
 			}).Return(true),
-			mockDb.EXPECT().IsConfigAllowed(&trafficclaim.Config{
-				Namespace: "tce-test",
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
 				Host:      "foo.com",
 				Port:      80,
 				ExactPath: "/products/matchesprefix",

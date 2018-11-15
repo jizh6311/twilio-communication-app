@@ -9,13 +9,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+//go:generate mockgen -destination=./mocks.go -package trafficclaim github.com/aspenmesh/tce/pkg/trafficclaim Verification
+
+// Db maintains the set of TrafficClaims to check against
+type Db interface {
+	// NewVerification creates a verification session for one namespace
+	// It will load any of the configs from the namespace you will verify
+	// once, and then consult those configs over and over again.
+	NewVerification(ns string) (Verification, error)
+}
+
 // Config describes a requested config that may be allowed by a TrafficClaim
 // At most one of ExactPath or PrefixPath can be set.  If both are "", then
 // no paths are specified - the config is listening to all paths.
 type Config struct {
-	// Namespace is required, it is where the config is being created
-	Namespace string
-
 	// Host is required, the hostname or glob that is being configured
 	Host string
 
@@ -31,21 +38,19 @@ type Config struct {
 	PrefixPath string
 }
 
-//go:generate mockgen -destination=./mocks.go -package trafficclaim github.com/aspenmesh/tce/pkg/trafficclaim Db
-
-// Db can check whether configs are allowed by the database of trafficclaims
-type Db interface {
+// Verification can check whether configs are allowed by the database of trafficclaims
+type Verification interface {
 	// IsConfigAllowed returns true if the TrafficClaims allow config
 	IsConfigAllowed(config *Config) bool
 
 	// IsHostAllowed is shorthand for IsConfigAllowed for host configs
-	IsHostAllowed(ns, host string) bool
+	IsHostAllowed(host string) bool
 
 	// IsPortAllowed is shorthand for IsConfigAllowed for host+port configs
-	IsPortAllowed(ns, host string, port uint32) bool
+	IsPortAllowed(host string, port uint32) bool
 
 	// IsPortPathAllowed is shorthand for IsConfigAllowed for host+port+exact path configs
-	IsPortPathAllowed(ns, host string, port uint32, path string) bool
+	IsPortPathAllowed(host string, port uint32, path string) bool
 }
 
 type db struct {
@@ -56,6 +61,24 @@ func NewDb(kube Interface) Db {
 	return &db{
 		kube: kube,
 	}
+}
+
+type verification struct {
+	namespace string
+	claims    *crd.TrafficClaimList // These are only the claims for namespace
+}
+
+func (d *db) NewVerification(ns string) (Verification, error) {
+	listOpts := metav1.ListOptions{}
+	claims, err := d.kube.Tc().NetworkingV1alpha3().TrafficClaims(ns).List(listOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &verification{
+		namespace: ns,
+		claims:    claims,
+	}, nil
 }
 
 // hostGlobsCovered returns true if everything in sub is a subset of sup
@@ -116,12 +139,6 @@ func isHostValid(host string) bool {
 		return false
 	}
 	return true
-}
-
-func (d *db) claimsForNamespace(ns string) (*crd.TrafficClaimList, error) {
-	// FIXME: timeout, limit, continue
-	listOpts := metav1.ListOptions{}
-	return d.kube.Tc().NetworkingV1alpha3().TrafficClaims(ns).List(listOpts)
 }
 
 func evalConfigAgainstClaims(config *Config, claims []crd.Claim) bool {
@@ -222,23 +239,17 @@ func isHostAllowedByNamespaceDefaultRule(ns string, host string) bool {
 		Hosts: []string{fmt.Sprintf("*.%s.svc.cluster.local", ns)},
 	}
 	return evalConfigAgainstClaims(
-		&Config{Namespace: ns, Host: host},
+		&Config{Host: host},
 		[]crd.Claim{nsClaim},
 	)
 }
 
-func (d *db) IsConfigAllowed(config *Config) bool {
-	if isHostAllowedByNamespaceDefaultRule(config.Namespace, config.Host) {
+func (v *verification) IsConfigAllowed(config *Config) bool {
+	if isHostAllowedByNamespaceDefaultRule(v.namespace, config.Host) {
 		return true
 	}
 
-	// FIXME(andrew): Get the claims at most once for each validation.
-	tcs, err := d.claimsForNamespace(config.Namespace)
-	if err != nil {
-		glog.Errorf("Failed to get trafficclaims from kubernetes: %v", err)
-		return false
-	}
-	for _, tc := range tcs.Items {
+	for _, tc := range v.claims.Items {
 		if evalConfigAgainstClaims(config, tc.Claims) {
 			return true
 		}
@@ -246,24 +257,21 @@ func (d *db) IsConfigAllowed(config *Config) bool {
 	return false
 }
 
-func (d *db) IsHostAllowed(ns, host string) bool {
-	return d.IsConfigAllowed(&Config{
-		Namespace: ns,
-		Host:      host,
+func (v *verification) IsHostAllowed(host string) bool {
+	return v.IsConfigAllowed(&Config{
+		Host: host,
 	})
 }
 
-func (d *db) IsPortAllowed(ns, host string, port uint32) bool {
-	return d.IsConfigAllowed(&Config{
-		Namespace: ns,
-		Host:      host,
-		Port:      port,
+func (v *verification) IsPortAllowed(host string, port uint32) bool {
+	return v.IsConfigAllowed(&Config{
+		Host: host,
+		Port: port,
 	})
 }
 
-func (d *db) IsPortPathAllowed(ns, host string, port uint32, path string) bool {
-	return d.IsConfigAllowed(&Config{
-		Namespace: ns,
+func (v *verification) IsPortPathAllowed(host string, port uint32, path string) bool {
+	return v.IsConfigAllowed(&Config{
 		Host:      host,
 		Port:      port,
 		ExactPath: path,
