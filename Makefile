@@ -43,35 +43,27 @@ ALL_CROSS := $(foreach plat,$(CROSS_PLATFORMS),$(foreach cmd,$(CROSS_CMDS),$(cmd
 #
 all: go-build
 
-images: tce-image
+image: tce-image
 
 canonical-artifacts: _build/canonical/.ok
 
-DEFAULT_BUILDER_TAG = tce-builder
-DEFAULT_TCE_TAG = tce
+DEFAULT_TCE_TAG = traffic-claim-enforcer
 ifeq ($(BRANCH_NAME)$(BUILD_ID),)
-  ENV_BUILDER_TAG := $(DEFAULT_BUILDER_TAG)
   ENV_TCE_TAG := $(DEFAULT_TCE_TAG)
 else
-  ENV_BUILDER_TAG := localhost:5000/tce-builder:${BRANCH_NAME}-${BUILD_ID}
-  ENV_TCE_TAG := quay.io/aspenmesh/tce:${BRANCH_NAME}-${BUILD_ID}
+  ENV_TCE_TAG := quay.io/aspenmesh/traffic-claim-enforcer:${BRANCH_NAME}-${BUILD_ID}
 endif
-BUILDER_TAG ?= $(ENV_BUILDER_TAG)
 TCE_TAG ?= $(ENV_TCE_TAG)
 
-tce-image: _build/img/builder-id.txt
+tce-image: build/pre-build-deps.txt always-build
 	@echo "Building docker image $(TCE_TAG)"
-	docker build -t $(TCE_TAG) --build-arg BUILDER_ID=`cat $<` build/img/tce
+	docker build -t $(TCE_TAG) ./
 
 cross: $(addprefix _build/cross/,$(ALL_CROSS))
 
-push-images: images
+push-image: image
 	[ "$(TCE_TAG)" != "$(DEFAULT_TCE_TAG)" ]
 	docker push $(TCE_TAG)
-
-#
-# Generate mocks for testing
-#
 
 #
 # Run unit tests
@@ -116,32 +108,6 @@ _build/dev-setup.ok: Gopkg.toml Gopkg.lock build/dev-setup.sh
 build/pre-build-deps.txt:
 	go list -f '{{ join .Imports "\n" }}' ./pkg/... ./cmd/... |  \
 		grep '^$(PACKAGE)/vendor' | sort -u  > $@
-
-
-# Make builder image, and save its id
-# This builds all the binaries needed
-# TODO: Use --iidfile when minikube updates docker to support it
-_build/img/builder-id.txt: build/pre-build-deps.txt always-build
-	@mkdir -p $(@D)
-	@echo "Building docker builder image"
-	#docker build --target=builder --iidfile $@ -f build/Dockerfile.builder .
-	# Using quotes and $$ to access the environment variable directly
-	# while preserving newlines.
-	docker build --target=builder -t $(BUILDER_TAG) \
-		-f build/Dockerfile.builder .
-	docker inspect --format='{{.Id}}' $(BUILDER_TAG) > $@
-
-
-
-# _build/canonical is reserved for artifacts build via the official builder image(s)
-_build/canonical/.ok: _build/img/builder-id.txt
-	@rm -rf _build/canonical
-	@mkdir -p _build/canonical/coverage
-	./build/docker-cp.sh $< /go/src/$(PACKAGE)/_build/coverage.out $(@D)/coverage/
-	./build/docker-cp.sh $< /go/src/$(PACKAGE)/_build/coverage.html $(@D)/coverage/
-	./build/docker-cp.sh $< /go/src/$(PACKAGE)/_build/cross $(@D)/cross
-	cp $< $@
-
 
 #
 # Remove all build artifacts
@@ -198,7 +164,7 @@ fmt:
 lint:
 	golangci-lint run
 
-.PHONY: always-build docs agent-image apiserver-image images push-images go-test go-build fmt lint
+.PHONY: always-build docs image push-image go-test go-build fmt lint
 
 _build/coverage.html: _build/coverage.out
 	go tool cover -html=$< -o $@

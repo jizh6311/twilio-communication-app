@@ -47,9 +47,26 @@ COPY . .
 
 RUN make clean
 RUN make 
-RUN SKIP_TESTS_THAT_REQUIRE_DOCKER=nonempty make test-ci coverage
+
+# FIXME: This fails because we don't currently have any tests (or code)
+# RUN SKIP_TESTS_THAT_REQUIRE_DOCKER=nonempty make test-ci coverage
+
 RUN make cross
 
 # This is only to be used as an intermediate image.
 # Force other use case to fail
 FROM scratch
+
+FROM debian:stretch
+WORKDIR /app
+
+RUN apt-get update \
+ && apt-get dist-upgrade -y \
+ && apt-get install -y \
+    curl \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /go/bin/tce /usr/local/bin
+
+CMD ["tce"]
