@@ -82,3 +82,14 @@ spec:
   - number: 443
     name: my-http
     protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: foo
+  namespace: tce-test
+spec:
+  host: www.bofa.com
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN

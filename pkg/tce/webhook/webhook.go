@@ -119,10 +119,23 @@ var (
 		Validator:         validateServiceEntry,
 	}
 
+	DestinationRule = dispatch{
+		Kind: metav1.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "DestinationRule",
+		},
+
+		JsonUnmarshalType: &pilotCrd.DestinationRule{},
+		PilotProtoSchema:  pilotModel.DestinationRule,
+		Validator:         validateDestinationRule,
+	}
+
 	Dispatchers = []*dispatch{
 		&VirtualService,
 		&Gateway,
 		&ServiceEntry,
+		&DestinationRule,
 	}
 )
 
