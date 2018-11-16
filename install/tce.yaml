@@ -76,6 +76,7 @@ webhooks:
         resources:
           - virtualservices
           - gateways
+          - serviceentries
     namespaceSelector:
       matchLabels:
         tce: enabled

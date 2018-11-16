@@ -107,9 +107,22 @@ var (
 		Validator:         validateGateway,
 	}
 
+	ServiceEntry = dispatch{
+		Kind: metav1.GroupVersionKind{
+			Group:   "networking.istio.io",
+			Version: "v1alpha3",
+			Kind:    "ServiceEntry",
+		},
+
+		JsonUnmarshalType: &pilotCrd.ServiceEntry{},
+		PilotProtoSchema:  pilotModel.ServiceEntry,
+		Validator:         validateServiceEntry,
+	}
+
 	Dispatchers = []*dispatch{
 		&VirtualService,
 		&Gateway,
+		&ServiceEntry,
 	}
 )
 

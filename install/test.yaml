@@ -64,3 +64,21 @@ spec:
       protocol: HTTP
     hosts:
     - "www.bofa.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: foo
+  namespace: tce-test
+spec:
+  hosts:
+  - my.external.com
+  - other.external.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: my-http
+    protocol: HTTP
+  - number: 443
+    name: my-http
+    protocol: HTTP
