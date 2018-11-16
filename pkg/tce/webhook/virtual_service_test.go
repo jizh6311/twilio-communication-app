@@ -74,25 +74,20 @@ func newPortPathVs(host string, port uint32, paths ...string) *networking.Virtua
 
 var _ = Describe("validate VirtualService", func() {
 	var (
-		mockCtrl *gomock.Controller
-		mockV    *trafficclaim.MockVerification
-		mockDb   *mmockDb
-		server   *webhookServer
+		mockDb *mockDb
+		mockV  *trafficclaim.MockVerification
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		mockV = trafficclaim.NewMockVerification(mockCtrl)
-		mockDb = &mmockDb{v: mockV}
-		server = &webhookServer{claimDb: mockDb}
+		mockDb, mockV = newMockDb()
 	})
 
 	AfterEach(func() {
-		mockCtrl.Finish()
+		mockDb.Finish()
 	})
 
 	validate := func(vs *networking.VirtualService) error {
-		return validateVirtualService("tce-test", server, vs)
+		return validateVirtualService("tce-test", mockDb.server, vs)
 	}
 
 	expectHostAllowed := func(host string) *gomock.Call {

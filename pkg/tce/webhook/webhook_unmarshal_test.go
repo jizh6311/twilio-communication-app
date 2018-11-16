@@ -21,21 +21,16 @@ func isAllowed(review *admitv1beta1.AdmissionReview) bool {
 
 var _ = Describe("unmarshaller", func() {
 	var (
-		mockCtrl *gomock.Controller
-		mockV    *trafficclaim.MockVerification
-		mockDb   *mmockDb
-		server   *webhookServer
+		mockV  *trafficclaim.MockVerification
+		mockDb *mockDb
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		mockV = trafficclaim.NewMockVerification(mockCtrl)
-		mockDb = &mmockDb{v: mockV}
-		server = &webhookServer{claimDb: mockDb}
+		mockDb, mockV = newMockDb()
 	})
 
 	AfterEach(func() {
-		mockCtrl.Finish()
+		mockDb.Finish()
 	})
 
 	It("handles golden VirtualService", func() {
@@ -74,7 +69,7 @@ var _ = Describe("unmarshaller", func() {
 			},
 			Response: nil,
 		}
-		Expect(isAllowed(server.validate(review))).To(BeTrue())
+		Expect(isAllowed(mockDb.server.validate(review))).To(BeTrue())
 	})
 })
 

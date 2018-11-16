@@ -11,25 +11,20 @@ import (
 
 var _ = Describe("validate Gateway", func() {
 	var (
-		mockCtrl *gomock.Controller
-		mockV    *trafficclaim.MockVerification
-		mockDb   *mmockDb
-		server   *webhookServer
+		mockV  *trafficclaim.MockVerification
+		mockDb *mockDb
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		mockV = trafficclaim.NewMockVerification(mockCtrl)
-		mockDb = &mmockDb{v: mockV}
-		server = &webhookServer{claimDb: mockDb}
+		mockDb, mockV = newMockDb()
 	})
 
 	AfterEach(func() {
-		mockCtrl.Finish()
+		mockDb.Finish()
 	})
 
 	validate := func(gw *networking.Gateway) error {
-		return validateGateway("tce-test", server, gw)
+		return validateGateway("tce-test", mockDb.server, gw)
 	}
 
 	gw := &networking.Gateway{
