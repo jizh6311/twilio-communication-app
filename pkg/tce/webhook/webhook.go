@@ -64,14 +64,31 @@ func failValidation(review *admitv1beta1.AdmissionReview, err error, statusReaso
 }
 
 func failValidationUnauth(review *admitv1beta1.AdmissionReview, err error) *admitv1beta1.AdmissionReview {
+	RejectedMetric.WithLabelValues(
+		review.Request.Namespace,
+		review.Request.Kind.Group,
+		review.Request.Kind.Kind,
+		"unauthorized",
+	).Inc()
 	return failValidation(review, err, metav1.StatusReasonUnauthorized)
 }
 
 func failValidationInvalid(review *admitv1beta1.AdmissionReview, err error) *admitv1beta1.AdmissionReview {
+	RejectedMetric.WithLabelValues(
+		review.Request.Namespace,
+		review.Request.Kind.Group,
+		review.Request.Kind.Kind,
+		"invalid",
+	).Inc()
 	return failValidation(review, err, metav1.StatusReasonInvalid)
 }
 
 func reportValidationPass(review *admitv1beta1.AdmissionReview) *admitv1beta1.AdmissionReview {
+	AllowedMetric.WithLabelValues(
+		review.Request.Namespace,
+		review.Request.Kind.Group,
+		review.Request.Kind.Kind,
+	).Inc()
 	return createResponse(review, &admitv1beta1.AdmissionResponse{Allowed: true})
 }
 
@@ -194,18 +211,21 @@ func (s *webhookServer) Serve(w http.ResponseWriter, r *http.Request) {
 		body, err = ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "error reading request", http.StatusBadRequest)
+			HTTPErrorMetric.WithLabelValues("read_error").Inc()
 			glog.Warning("Error reading request from client")
 			return
 		}
 	}
 	if len(body) == 0 {
 		http.Error(w, "no body", http.StatusBadRequest)
+		HTTPErrorMetric.WithLabelValues("no_body").Inc()
 		glog.Warning("Rejecting client request with no body")
 		return
 	}
 
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "unexpected Content-Type", http.StatusUnsupportedMediaType)
+		HTTPErrorMetric.WithLabelValues("unexpected_content_type").Inc()
 		glog.Warning("Rejecting client request with unexpected content-type")
 		return
 	}
@@ -223,10 +243,12 @@ func (s *webhookServer) Serve(w http.ResponseWriter, r *http.Request) {
 	respBody, err := json.Marshal(reviewResp)
 	if err != nil {
 		glog.Errorf("Can't marshal response: %v", err)
+		HTTPErrorMetric.WithLabelValues("marshal_response").Inc()
 		http.Error(w, fmt.Sprintf("Can't marshal response"), http.StatusInternalServerError)
 	}
 	if _, err := w.Write(respBody); err != nil {
 		glog.Warningf("Can't write response: %v", err)
+		HTTPErrorMetric.WithLabelValues("write_response").Inc()
 		http.Error(w, fmt.Sprintf("Can't write response"), http.StatusInternalServerError)
 	}
 }
