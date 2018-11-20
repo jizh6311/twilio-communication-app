@@ -60,7 +60,6 @@ func failValidation(review *admitv1beta1.AdmissionReview, err error, statusReaso
 			Message: err.Error(),
 		},
 	}
-	glog.Infof("Rejecting: %v", err)
 	return createResponse(review, resp)
 }
 
@@ -73,7 +72,6 @@ func failValidationInvalid(review *admitv1beta1.AdmissionReview, err error) *adm
 }
 
 func reportValidationPass(review *admitv1beta1.AdmissionReview) *admitv1beta1.AdmissionReview {
-	glog.Infof("Allowing")
 	return createResponse(review, &admitv1beta1.AdmissionResponse{Allowed: true})
 }
 
@@ -127,7 +125,6 @@ func (s *webhookServer) validate(review *admitv1beta1.AdmissionReview) *admitv1b
 		)
 	}
 
-	glog.Infof("raw all: %s", string(req.Object.Raw))
 	vs := d.JsonUnmarshalType.DeepCopyObject().(pilotCrd.IstioObject)
 	if err := json.Unmarshal(req.Object.Raw, &vs); err != nil {
 		return failValidationInvalid(
@@ -177,12 +174,10 @@ func (s *webhookServer) Serve(w http.ResponseWriter, r *http.Request) {
 	var reviewResp *admitv1beta1.AdmissionReview
 	review := admitv1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &review); err != nil {
-		glog.Errorf("Can't decode body: %v", err)
-		glog.Warning("Rejecting client request, couldn't decode body")
+		glog.Warningf("Rejecting client request, couldn't decode body: %v", err)
 		reviewResp = failValidationInvalid(&review, fmt.Errorf("Couldn't decode body"))
 	} else {
-		glog.Infof("Client request resp: %v", review.Response)
-		glog.Infof("Mutating client request: %v", review)
+		glog.V(4).Infof("Client request resp: %v", review.Response)
 		reviewResp = s.validate(&review)
 	}
 
@@ -191,10 +186,8 @@ func (s *webhookServer) Serve(w http.ResponseWriter, r *http.Request) {
 		glog.Errorf("Can't marshal response: %v", err)
 		http.Error(w, fmt.Sprintf("Can't marshal response"), http.StatusInternalServerError)
 	}
-	glog.Infof("Writing response")
 	if _, err := w.Write(respBody); err != nil {
-		glog.Errorf("Can't write response: %v", err)
-		// TODO: Can this actually work?
+		glog.Warningf("Can't write response: %v", err)
 		http.Error(w, fmt.Sprintf("Can't write response"), http.StatusInternalServerError)
 	}
 }

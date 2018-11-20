@@ -9,7 +9,6 @@ import (
 	crd "github.com/aspenmesh/tce/pkg/api/networking/v1alpha3"
 	faketcclient "github.com/aspenmesh/tce/pkg/client/clientset/versioned/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	fakekubeclient "k8s.io/client-go/kubernetes/fake"
 )
 
 func TestProxy(t *testing.T) {
@@ -22,18 +21,53 @@ func newFakeDb(claims ...*crd.TrafficClaim) Db {
 	for _, c := range claims {
 		tc.NetworkingV1alpha3().TrafficClaims(c.Namespace).Create(c)
 	}
-	kube := fakekubeclient.NewSimpleClientset()
-	kubeclient := &kubeclient{
-		tc:   tc,
-		kube: kube,
-	}
-	return NewDb(kubeclient)
+	return NewDb(&kubeclient{tc: tc})
 }
 
 func newFake(claims ...*crd.TrafficClaim) Verification {
 	verification, _ := newFakeDb(claims...).NewVerification("tce-test")
 	return verification
 }
+
+var _ = Describe("hostGlobsCovered", func() {
+	It("accepts equal", func() {
+		// This is true but weird
+		Expect(hostGlobsCovered("", "")).To(BeTrue())
+
+		Expect(hostGlobsCovered("x", "x")).To(BeTrue())
+		Expect(hostGlobsCovered("example.com", "example.com")).To(BeTrue())
+	})
+	It("rejects empty sup", func() {
+		Expect(hostGlobsCovered("", "example.com")).To(BeFalse())
+		Expect(hostGlobsCovered("", "x")).To(BeFalse())
+		Expect(hostGlobsCovered("", " ")).To(BeFalse())
+	})
+	It("accepts all-*", func() {
+		Expect(hostGlobsCovered("*", "*")).To(BeTrue())
+	})
+	It("accepts anything for *-sup", func() {
+		Expect(hostGlobsCovered("*", "com")).To(BeTrue())
+		Expect(hostGlobsCovered("*", "foo.com")).To(BeTrue())
+		Expect(hostGlobsCovered("*", ".foo.com")).To(BeTrue())
+	})
+	It("rejects *-sub for specific sup", func() {
+		Expect(hostGlobsCovered("example.com", "*")).To(BeFalse())
+		Expect(hostGlobsCovered("example.com", "*.example.com")).To(BeFalse())
+		Expect(hostGlobsCovered("example.com", "*example.com")).To(BeFalse())
+		Expect(hostGlobsCovered("example.com", "*.com")).To(BeFalse())
+		Expect(hostGlobsCovered("example.com", "*com")).To(BeFalse())
+	})
+	It("accepts subs covered by sup", func() {
+		Expect(hostGlobsCovered("*.com", "example.com")).To(BeTrue())
+		Expect(hostGlobsCovered("*.com", "foo.example.com")).To(BeTrue())
+		Expect(hostGlobsCovered("*.com", "*.example.com")).To(BeTrue())
+		Expect(hostGlobsCovered("*.com", "*.com")).To(BeTrue())
+	})
+	It("rejects overbroad subs", func() {
+		Expect(hostGlobsCovered("*.example.com", "*.com")).To(BeFalse())
+		Expect(hostGlobsCovered("*.example.com", "example.com")).To(BeFalse())
+	})
+})
 
 var _ = Describe("isHostValid", func() {
 	It("accepts non-glob host", func() {
@@ -42,7 +76,6 @@ var _ = Describe("isHostValid", func() {
 		Expect(isHostValid("example.com")).To(BeTrue())
 	})
 	It("rejects dot-glob host", func() {
-		// FIXME(andrew): I think this isn't allowed in Istio?
 		Expect(isHostValid(".example.com")).To(BeFalse())
 		Expect(isHostValid(".com")).To(BeFalse())
 	})
@@ -60,6 +93,8 @@ var _ = Describe("isHostValid", func() {
 	It("rejects multiple star-globs", func() {
 		Expect(isHostValid("*.*.com")).To(BeFalse())
 		Expect(isHostValid("**.example.com")).To(BeFalse())
+		Expect(isHostValid("foo.*.example.com")).To(BeFalse())
+		Expect(isHostValid("foo*.example.com")).To(BeFalse())
 	})
 })
 
@@ -164,6 +199,7 @@ var _ = Describe("TrafficClaim Hosts", func() {
 		It("rejects all external hosts", func() {
 			Expect(v.IsHostAllowed("www.bofa.com")).To(BeFalse())
 			Expect(v.IsHostAllowed("example.com")).To(BeFalse())
+			Expect(v.IsPortAllowed("example.com", 80)).To(BeFalse())
 		})
 		It("allows namespace-default services", func() {
 			Expect(v.IsHostAllowed("foo.tce-test.svc.cluster.local")).To(BeTrue())
@@ -249,6 +285,8 @@ var _ = Describe("TrafficClaim Hosts", func() {
 		It("rejects claims for hosts when only port claimed", func() {
 			v := newFake(tc443)
 			Expect(v.IsHostAllowed("www.bofa.com")).To(BeFalse())
+			Expect(v.IsHostAllowed("*")).To(BeFalse())
+			Expect(v.IsPortAllowed("*", 443)).To(BeFalse())
 		})
 	})
 
@@ -269,6 +307,7 @@ var _ = Describe("TrafficClaim Hosts", func() {
 			Expect(v.IsPortAllowed("www.bofa.com", 443)).To(BeTrue())
 			Expect(v.IsPortAllowed("www.bofa.com", 8443)).To(BeTrue())
 			Expect(v.IsPortAllowed("www.bofa.com", 9443)).To(BeTrue())
+			Expect(v.IsPortAllowed("www.bofa.com", 10443)).To(BeFalse())
 		})
 
 		tcDifferentPortsOnEachHost := newClaim("tce-test", "c", crd.Claim{
@@ -335,6 +374,11 @@ var _ = Describe("TrafficClaim Hosts", func() {
 			Expect(v.IsPortPathAllowed("example.com", 80, "/products/baz")).To(BeTrue())
 			Expect(v.IsPortPathAllowed("example.com", 80, "/products/baz/bar")).To(BeTrue())
 			Expect(v.IsPortPathAllowed("example.com", 80, "/products/products")).To(BeTrue())
+		})
+		It("rejects non-prefix claims", func() {
+			v := newFake(tcPrefix)
+			Expect(v.IsPortPathAllowed("example.com", 80, "/baz/products")).To(BeFalse())
+			Expect(v.IsPortPathAllowed("example.com", 80, "/baz/products/foo")).To(BeFalse())
 		})
 
 		tcBoth := newClaim("tce-test", "e", crd.Claim{

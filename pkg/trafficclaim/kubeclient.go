@@ -2,7 +2,6 @@ package trafficclaim
 
 import (
 	tcclient "github.com/aspenmesh/tce/pkg/client/clientset/versioned"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -19,34 +18,22 @@ func CreateInterface(kubeconfig string) (Interface, error) {
 		return nil, err
 	}
 
-	kube, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	tc, err := tcclient.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	return &kubeclient{
-		kube: kube,
-		tc:   tc,
+		tc: tc,
 	}, nil
 }
 
 type Interface interface {
-	Kube() kubernetes.Interface
 	Tc() tcclient.Interface
 }
 
 type kubeclient struct {
-	kube kubernetes.Interface
-	tc   tcclient.Interface
-}
-
-func (kc *kubeclient) Kube() kubernetes.Interface {
-	return kc.kube
+	tc tcclient.Interface
 }
 
 func (kc *kubeclient) Tc() tcclient.Interface {

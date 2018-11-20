@@ -19,10 +19,7 @@ func TestProxy(t *testing.T) {
 
 func newHostVs(hosts ...string) *networking.VirtualService {
 	return &networking.VirtualService{
-		Hosts: []string{
-			"foo.example.com",
-			"bar.example.com",
-		},
+		Hosts: hosts,
 		Http: []*networking.HTTPRoute{
 			&networking.HTTPRoute{
 				Route: []*networking.HTTPRouteDestination{
@@ -235,5 +232,66 @@ var _ = Describe("validate VirtualService", func() {
 			}).Return(true),
 		)
 		Expect(validate(mixedPathVs)).Should(Succeed())
+	})
+
+	authorityMatches := []*networking.HTTPMatchRequest{
+		&networking.HTTPMatchRequest{
+			Port: 80,
+			Authority: &networking.StringMatch{
+				MatchType: &networking.StringMatch_Exact{Exact: "foo.example.com"},
+			},
+		},
+		&networking.HTTPMatchRequest{
+			Port: 80,
+			Authority: &networking.StringMatch{
+				MatchType: &networking.StringMatch_Prefix{Prefix: "foo"},
+			},
+		},
+		&networking.HTTPMatchRequest{
+			Port: 80,
+			Authority: &networking.StringMatch{
+				MatchType: &networking.StringMatch_Regex{Regex: ".*.example.com"},
+			},
+		},
+	}
+	authorityVs := newMultiRouteVs("", authorityMatches...)
+	authorityVs.Hosts = []string{"foo.com", "foo.example.com", "bar.com"}
+	It("handles authority matches", func() {
+		gomock.InOrder(
+			// Exact match authority narrows to only that host.
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "foo.example.com",
+				Port: 80,
+			}).Return(true),
+
+			// Prefix match is the same as "all hosts"
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "foo.com",
+				Port: 80,
+			}).Return(true),
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "foo.example.com",
+				Port: 80,
+			}).Return(true),
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "bar.com",
+				Port: 80,
+			}).Return(true),
+
+			// Regex match is the same as "all hosts"
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "foo.com",
+				Port: 80,
+			}).Return(true),
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "foo.example.com",
+				Port: 80,
+			}).Return(true),
+			mockV.EXPECT().IsConfigAllowed(&trafficclaim.Config{
+				Host: "bar.com",
+				Port: 80,
+			}).Return(true),
+		)
+		Expect(validate(authorityVs)).Should(Succeed())
 	})
 })

@@ -9,6 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	kubeclientTimeoutSeconds = int64(30)
+)
+
 //go:generate mockgen -destination=./mocks.go -package trafficclaim github.com/aspenmesh/tce/pkg/trafficclaim Verification
 
 // Db maintains the set of TrafficClaims to check against
@@ -69,7 +73,8 @@ type verification struct {
 }
 
 func (d *db) NewVerification(ns string) (Verification, error) {
-	listOpts := metav1.ListOptions{}
+	timeout := kubeclientTimeoutSeconds
+	listOpts := metav1.ListOptions{TimeoutSeconds: &timeout}
 	claims, err := d.kube.Tc().NetworkingV1alpha3().TrafficClaims(ns).List(listOpts)
 	if err != nil {
 		return nil, err
@@ -83,8 +88,6 @@ func (d *db) NewVerification(ns string) (Verification, error) {
 
 // hostGlobsCovered returns true if everything in sub is a subset of sup
 func hostGlobsCovered(sup string, sub string) bool {
-	// FIXME(andrew): Does Istio allow glob matching anywhere?
-	// Is there a utility function for this?
 	if len(sup) == 0 {
 		return len(sub) == 0
 	}
@@ -147,7 +150,7 @@ func evalConfigAgainstClaims(config *Config, claims []crd.Claim) bool {
 		return false
 	}
 	if !isHostValid(config.Host) {
-		glog.Errorf("Config host %s invalid", config.Host)
+		glog.Warningf("Config host %s invalid", config.Host)
 	}
 	if config.ExactPath != "" && config.PrefixPath != "" {
 		glog.Errorf("Can't check for exact path and prefix path in one check")

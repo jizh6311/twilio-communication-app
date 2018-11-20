@@ -6,7 +6,6 @@ import (
 
 	"github.com/aspenmesh/tce/pkg/trafficclaim"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -73,7 +72,6 @@ func validateVirtualService(ns string, s *webhookServer, spec proto.Message) err
 				case *networking.StringMatch_Regex:
 					// Too hard to figure out what the regex will match - we treat it as
 					// "no path" (configuring the entire host+port)
-					glog.Infof("regex: %s", u.Regex)
 				default:
 					return fmt.Errorf("Unexpected Uri MatchType")
 				}
@@ -83,10 +81,39 @@ func validateVirtualService(ns string, s *webhookServer, spec proto.Message) err
 				config.Port = port
 			}
 
-			for _, h := range hosts {
-				config.Host = h
+			// If an authority is specified and parseable then we'll consider that
+			// as a more specific host match.
+			var authHost string
+			if authMatch := match.GetAuthority(); authMatch != nil {
+				switch auth := authMatch.MatchType.(type) {
+				case *networking.StringMatch_Exact:
+					authHost = auth.Exact
+				case *networking.StringMatch_Prefix:
+					// Weird because for authorities you care about the suffix
+					// e.g. if prefix: "foo" this would allow "foo.com",
+					// "foo.example.com", "fooexample.com".
+					// So, treat this as "all hosts"
+				case *networking.StringMatch_Regex:
+					// Too hard to figure out what the regex will match - we treat it as
+					// "all hosts".
+				default:
+					return fmt.Errorf("Unexpected authority MatchType")
+				}
+			}
+
+			if authHost != "" {
+				config.Host = authHost
 				if !v.IsConfigAllowed(&config) {
 					return noClaimError(ns, &config)
+				}
+			} else {
+				// No authority specified in the match condition so this applies to
+				// all hosts.
+				for _, h := range hosts {
+					config.Host = h
+					if !v.IsConfigAllowed(&config) {
+						return noClaimError(ns, &config)
+					}
 				}
 			}
 		}
