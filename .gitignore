@@ -1,3 +1,9 @@
 vendor/
 _build/
 build/pre-build-deps.txt
+
+# Generated
+*.pb.go
+pkg/client
+zz_*.go
+pkg/trafficclaim/mocks.go

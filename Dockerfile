@@ -27,6 +27,12 @@ RUN curl -s -L \
  && echo "287b08291e14f1fae8ba44374b26a2b12eb941af3497ed0ca649253e21ba2f83 /go/bin/dep" | sha256sum -c - \
  && chmod +x /go/bin/dep
 
+RUN curl -L -O \
+    https://github.com/google/protobuf/releases/download/v3.4.0/protoc-3.4.0-linux-x86_64.zip \
+ && echo 'e4b51de1b75813e62d6ecdde582efa798586e09b5beaebfb866ae7c9eaadace4 protoc-3.4.0-linux-x86_64.zip' | sha256sum -c - \
+ && mkdir -p /usr/local \
+ && unzip protoc-3.4.0-linux-x86_64.zip -d /usr/local
+
 # Optimize build cache
 # Install the locked go deps into vendor
 COPY Gopkg.lock Gopkg.toml ./

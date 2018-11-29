@@ -22,6 +22,8 @@
 required = [
   "github.com/onsi/ginkgo/ginkgo",
   "github.com/wadey/gocovmerge",
+  "k8s.io/code-generator/cmd/client-gen",
+  "github.com/golang/mock/mockgen",
 ]
 
 # We need to specify fsnotify source to avoid dep panic
@@ -29,3 +31,28 @@ required = [
 [[override]]
   name = "gopkg.in/fsnotify.v1"
   source = "https://github.com/fsnotify/fsnotify.git"
+
+# https://github.com/kubernetes/client-go#compatibility-matrix
+[[override]]
+  name = "k8s.io/client-go"
+  branch = "release-8.0" # kubernetes-1.11
+
+#[[constraint]]
+#  name = "istio.io/api"
+#  branch = "master"
+
+[[constraint]]
+  name = "k8s.io/api"
+  branch = "release-1.11"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+  branch = "release-1.11"
+
+[[constraint]]
+  name = "k8s.io/code-generator"
+  branch = "release-1.11"
+
+#[[constraint]]
+#  name = "k8s.io/kubernetes"
+#  branch = "release-1.11"
