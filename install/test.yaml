@@ -49,3 +49,47 @@ spec:
     - destination:
         host: sleep3
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: foo
+  namespace: tce-test
+spec:
+  selector:
+    app: my-gw
+  servers:
+  - port:
+      number: 80
+      name: my-http-port
+      protocol: HTTP
+    hosts:
+    - "www.bofa.com"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: foo
+  namespace: tce-test
+spec:
+  hosts:
+  - my.external.com
+  - other.external.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: my-http
+    protocol: HTTP
+  - number: 443
+    name: my-http
+    protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: foo
+  namespace: tce-test
+spec:
+  host: www.bofa.com
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN

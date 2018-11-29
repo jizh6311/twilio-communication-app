@@ -14,3 +14,11 @@ claims:
     paths:
       exact: [ "/admin/login" ]
       prefix: [ "/products" ]
+
+# An external service controlled by ServiceEntries
+- hosts: [ "my.external.com" ]
+  ports: [ 80, 443, 8080, 8443 ]
+
+# Another external service to show this can come from a different claim
+- hosts: [ "other.external.com" ]
+  ports: [ 80, 443, 8080, 8443 ]

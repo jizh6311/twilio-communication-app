@@ -1,17 +1,12 @@
 package cmd
 
 import (
-	"context"
 	"crypto/tls"
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/aspenmesh/tce/pkg/tce/webhook"
-	"github.com/aspenmesh/tce/pkg/trafficclaim"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
@@ -23,14 +18,13 @@ var RootCmd = &cobra.Command{
 }
 
 type ServerParms struct {
-	port     int
-	certFile string
-	keyFile  string
+	port        int
+	metricsPort int
+	certFile    string
+	keyFile     string
 }
 
 func Execute() {
-	fmt.Println("Execute")
-
 	parms := ServerParms{}
 
 	flag.IntVar(&parms.port, "port", 443, "Webhook server port.")
@@ -46,49 +40,35 @@ func Execute() {
 		"/etc/webhook/certs/key.pem",
 		"x509 private key for --tlsCertFile.",
 	)
+	flag.IntVar(
+		&parms.metricsPort,
+		"metrics",
+		9093,
+		"Prometheus monitoring port",
+	)
 	flag.Parse()
+
+	shutdownMetrics, err := startMetricsServer(parms.metricsPort)
+	if err != nil {
+		glog.Fatalf("Failed to start metrics server: %v", err)
+	}
+	glog.Infof("Metrics listen addr: %v\n", parms.metricsPort)
 
 	keypair, err := tls.LoadX509KeyPair(parms.certFile, parms.keyFile)
 	if err != nil {
 		glog.Fatalf("Failed to load x509 cert/key pair: %v", err)
 	}
-
-	kubeclient, err := trafficclaim.CreateInterface("")
+	shutdownValidate, err := startValidateServer(parms.port, keypair)
 	if err != nil {
-		glog.Fatalf("Failed to create a kubernetes client: %v", err)
+		glog.Fatalf("Failed to start validate server: %v", err)
 	}
-	claimDb := trafficclaim.NewDb(kubeclient)
-
-	mux := http.NewServeMux()
-	if _, err := webhook.NewWebhookServer(mux, claimDb); err != nil {
-		glog.Fatalf("Failed to create webhook server: %v", err)
-
-	}
-	server := &http.Server{
-		Addr:      fmt.Sprintf(":%v", parms.port),
-		TLSConfig: &tls.Config{Certificates: []tls.Certificate{keypair}},
-		Handler:   mux,
-	}
-
-	go func() {
-		if err := server.ListenAndServeTLS("", ""); err != nil {
-			glog.Errorf("Failed to listen and serve: %v", err)
-		}
-	}()
+	glog.Infof("Validate listen addr: %v\n", parms.port)
 
 	waitSignal := make(chan os.Signal, 1)
 	signal.Notify(waitSignal, syscall.SIGINT, syscall.SIGTERM)
 	<-waitSignal
 
 	glog.Infof("Shutting down")
-	if err := server.Shutdown(context.Background()); err != nil {
-		glog.Errorf("Error shutting down server, ignored: %v", err)
-	}
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-}
-
-func initConfig() {
+	shutdownMetrics()
+	shutdownValidate()
 }
