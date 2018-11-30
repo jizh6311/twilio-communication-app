@@ -1,17 +1,15 @@
-# Install via:
-# CA_BUNDLE=$(kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n') envsubst < install/tce.yaml | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: tce
+  name: traffic-claim-enforcer
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: tce
-  namespace: tce
+  name: traffic-claim-enforcer
+  namespace: traffic-claim-enforcer
   labels:
-    app: tce
+    app: traffic-claim-enforcer
 spec:
   replicas: 1
   template:
@@ -20,11 +18,11 @@ spec:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '9093'
       labels:
-        app: tce
+        app: traffic-claim-enforcer
     spec:
       containers:
-        - name: tce
-          image: quay.io/aspenmesh/wip:andrew-tce-latest
+        - name: traffic-claim-enforcer
+          image: quay.io/aspenmesh/traffic-claim-enforcer:master-4
           imagePullPolicy: Always
           args:
             - tce
@@ -39,43 +37,246 @@ spec:
       volumes:
         - name: webhook-certs
           secret:
-            secretName: tce-webhook-certs
-      serviceAccount: tce-service-account
+            secretName: traffic-claim-enforcer-webhook-certs
+      serviceAccount: traffic-claim-enforcer-service-account
       imagePullSecrets:
         - name: aspenmesh-infrajenkins-pull-secret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: tce-webhook
-  namespace: tce
+  name: traffic-claim-enforcer-webhook
+  namespace: traffic-claim-enforcer
   labels:
-    app: tce
+    app: traffic-claim-enforcer
 spec:
   ports:
   - port: 443
     targetPort: 443
   selector:
-    app: tce
+    app: traffic-claim-enforcer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traffic-claim-enforcer-certs-service-account
+  namespace: traffic-claim-enforcer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traffic-claim-enforcer-certs
+rules:
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["certificatesigningrequests", "certificatesigningrequests/approval"]
+  verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get", "patch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: traffic-claim-enforcer-certs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traffic-claim-enforcer-certs
+subjects:
+  - kind: ServiceAccount
+    name: traffic-claim-enforcer-certs-service-account
+    namespace: traffic-claim-enforcer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: traffic-claim-enforcer
+  name: traffic-claim-enforcer-certs
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: traffic-claim-enforcer
+  name: traffic-claim-enforcer-certs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: traffic-claim-enforcer-certs
+subjects:
+  - kind: ServiceAccount
+    name: traffic-claim-enforcer-certs-service-account
+    namespace: traffic-claim-enforcer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traffic-claim-enforcer-certs
+  namespace: traffic-claim-enforcer
+  labels:
+    app: traffic-claim-enforcer
+data:
+  run.sh: |-
+    #!/bin/bash -e
+    # Based on https://github.com/morvencao/kube-mutating-webhook-tutorial/blob/master/deployment/webhook-patch-ca-bundle.sh
+
+    while [[ $# -gt 0 ]]; do
+        case ${1} in
+            --service)
+                service="$2"
+                shift
+                ;;
+            --secret)
+                secret="$2"
+                shift
+                ;;
+            --namespace)
+                namespace="$2"
+                shift
+                ;;
+        esac
+        shift
+    done
+
+    [ -z ${service} ] && service=traffic-claim-enforcer-webhook
+    [ -z ${secret} ] && secret=traffic-claim-enforcer-webhook-certs
+    [ -z ${namespace} ] && namespace=traffic-claim-enforcer
+
+    csrName=${service}.${namespace}
+    tmpdir=$(mktemp -d)
+    echo "creating certs in tmpdir ${tmpdir} "
+
+    cat <<EOF >> ${tmpdir}/csr.conf
+    [req]
+    req_extensions = v3_req
+    distinguished_name = req_distinguished_name
+    [req_distinguished_name]
+    [ v3_req ]
+    basicConstraints = CA:FALSE
+    keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = ${service}
+    DNS.2 = ${service}.${namespace}
+    DNS.3 = ${service}.${namespace}.svc
+    EOF
+
+    openssl genrsa -out ${tmpdir}/server-key.pem 2048
+    openssl req -new -key ${tmpdir}/server-key.pem -subj "/CN=${service}.${namespace}.svc" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf
+
+    # clean-up any previously created CSR for our service. Ignore errors if not present.
+    kubectl delete csr ${csrName} 2>/dev/null || true
+
+    # create  server cert/key CSR and  send to k8s API
+    cat <<EOF | kubectl create -f -
+    apiVersion: certificates.k8s.io/v1beta1
+    kind: CertificateSigningRequest
+    metadata:
+      name: ${csrName}
+    spec:
+      groups:
+      - system:authenticated
+      request: $(cat ${tmpdir}/server.csr | base64 | tr -d '\n')
+      usages:
+      - digital signature
+      - key encipherment
+      - server auth
+    EOF
+
+    # verify CSR has been created
+    while true; do
+      if kubectl get csr ${csrName}; then
+        break
+      fi
+    done
+
+    # approve and fetch the signed certificate
+    kubectl certificate approve ${csrName}
+    # verify certificate has been signed
+    for x in $(seq 10); do
+        serverCert=$(kubectl get csr ${csrName} -o jsonpath='{.status.certificate}') || true
+        if [[ ${serverCert} != '' ]]; then
+            break
+        fi
+        sleep 1
+    done
+    if [[ ${serverCert} == '' ]]; then
+        echo "ERROR: After approving csr ${csrName}, the signed certificate did not appear on the resource. Giving up after 10 attempts." >&2
+        exit 1
+    fi
+    echo ${serverCert} | openssl base64 -d -A -out ${tmpdir}/server-cert.pem
+
+
+    # create the secret with CA cert and server cert/key
+    kubectl create secret generic ${secret} \
+            --from-file=key.pem=${tmpdir}/server-key.pem \
+            --from-file=cert.pem=${tmpdir}/server-cert.pem \
+            --dry-run -o yaml |
+        kubectl -n ${namespace} apply -f -
+
+    # Update the webhook config to trust the CA that signed our CSR
+    while true; do
+        if kubectl get validatingwebhookconfiguration traffic-claim-enforcer; then
+            break
+        fi
+        sleep 1
+    done
+    KUBEAPI_CA=$(kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n')
+    kubectl patch validatingwebhookconfiguration traffic-claim-enforcer --type json -p "[ { \"op\": \"add\", \"path\": \"/webhooks/0/clientConfig/caBundle\", \"value\": \"$KUBEAPI_CA\" } ]"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: traffic-claim-enforcer-certs
+  namespace: traffic-claim-enforcer
+  labels:
+    app: traffic-claim-enforcer
+spec:
+  template:
+    metadata:
+      name: traffic-claim-enforcer-certs
+      labels:
+        app: traffic-claim-enforcer
+    spec:
+      serviceAccountName: traffic-claim-enforcer-certs-service-account
+      containers:
+        - name: hyperkube
+          image: quay.io/coreos/hyperkube:v1.7.6_coreos.0
+          command: [ "/bin/bash", "/tmp/cert/run.sh" ]
+          volumeMounts:
+            - mountPath: "/tmp/cert"
+              name: tmp-configmap-certs
+      volumes:
+        - name: tmp-configmap-certs
+          configMap:
+            name: traffic-claim-enforcer-certs
+      restartPolicy: OnFailure
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
+kind: ValidatingWebhookConfiguration
 metadata:
-  name: tce
+  name: traffic-claim-enforcer
   labels:
-    app: tce
+    app: traffic-claim-enforcer
 webhooks:
-  - name: tce.aspenmesh.io
+  - name: traffic-claim-enforcer.aspenmesh.io
     clientConfig:
       service:
-        name: tce-webhook
-        namespace: tce
+        name: traffic-claim-enforcer-webhook
+        namespace: traffic-claim-enforcer
         path: "/validate"
-      caBundle: ${CA_BUNDLE}
+      caBundle: ""
     rules:
       - operations: [ "CREATE", "UPDATE" ]
         apiGroups: ["networking.istio.io"]
-        apiVersions: ["*"]
+        apiVersions: ["v1alpha3"]
         resources:
           - virtualservices
           - gateways
@@ -83,18 +284,18 @@ webhooks:
           - destinationrules
     namespaceSelector:
       matchLabels:
-        tce: enabled
+        traffic-claim-enforcer: enabled
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tce-service-account
-  namespace: tce
+  name: traffic-claim-enforcer-service-account
+  namespace: traffic-claim-enforcer
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: tce
+  name: traffic-claim-enforcer
 rules:
 - apiGroups: ["networking.aspenmesh.io"]
   resources: ["trafficclaims"]
@@ -103,15 +304,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: tce
+  name: traffic-claim-enforcer
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: tce
+  name: traffic-claim-enforcer
 subjects:
   - kind: ServiceAccount
-    name: tce-service-account
-    namespace: tce
+    name: traffic-claim-enforcer-service-account
+    namespace: traffic-claim-enforcer
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1

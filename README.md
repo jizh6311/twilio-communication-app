@@ -77,11 +77,13 @@ Kubernetes to call it.
 1. Make sure your kubeconfig is pointed at the right cluster (`kubectl config
 get-contexts` or similar)
 
-2. `kubectl create namespace tce`
+2. `kubectl apply -f install/tce.yaml`
 
-3. `install/create-webhook-certs.sh`
-
-4. `CA_BUNDLE=$(kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n') envsubst< install/tce.yaml | kubectl apply -f -`
+This step installs the Deployment, the Service and the webhook configuration so
+that kubernetes can consult our trafficclaim.  It also starts a job to get a
+signed certificate so that kubernetes will trust our webhook when it calls us.
+The enforcer won't work until that job completes, which usually only takes a
+few seconds.
 
 ## Using
 
