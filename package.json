@@ -1,0 +1,22 @@
+{
+  "name": "twilio-communication-app",
+  "version": "1.0.0",
+  "description": "Play with multiple Twilio Communication APIs for SMS, voice and video calls and etc",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No tests currently\""
+  },
+  "keywords": [
+    "Twilio",
+    "communication-api"
+  ],
+  "author": "Jian Zhang",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jizh6311/twilio-communication-app/issues"
+  },
+  "homepage": "https://github.com/jizh6311/twilio-communication-app#readme",
+  "dependencies": {
+    "twilio": "^3.32.0"
+  }
+}
