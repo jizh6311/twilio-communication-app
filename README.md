@@ -14,3 +14,7 @@ Play with multiple Twilio Communication APIs for SMS, voice and video calls and 
 }
 ```
 3. Run ```yarn start```. The server will make a phone call to your number. Remember you have limited usage. Don't play for fun too long.
+
+## API Document
+1. Use POST ```/communication/voice``` to send voice call to your phone.
+2. Use POST ```/communication/message``` with payload ```{ message: <message> }``` to send message to your phone.
