@@ -13,7 +13,7 @@ Play with multiple Twilio Communication APIs for SMS, voice and video calls and 
   "toNumber": <your-number>
 }
 ```
-3. Run ```yarn start```. The server will make a phone call to your number. Remember you have limited usage. Don't play for fun too long.
+3. Run ```yarn start``` to start the services. Remember you have limited usage that can be checked on your dashboard.
 
 ## API Document
 1. Use POST ```/communication/voice``` to send voice call to your phone.
