@@ -3,10 +3,14 @@ import { NgModule } from '@angular/core';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
+import { TextSenderComponent } from './components/textSender/textSender.component';
+import { VoiceSenderComponent } from './components/voiceSender/voiceSender.component';
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    TextSenderComponent,
+    VoiceSenderComponent
   ],
   imports: [
     BrowserModule,
