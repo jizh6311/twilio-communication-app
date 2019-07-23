@@ -7,6 +7,8 @@
     "build": "ng build",
     "test": "ng test",
     "lint": "ng lint",
+    "docker:build": "docker build -t docker/twilio-communication-app/frontend .",
+    "docker:start": "docker run -p 4200:4200 -d docker/twilio-communication-app/frontend",
     "e2e": "ng e2e"
   },
   "private": true,
