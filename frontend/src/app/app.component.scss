@@ -1,3 +1,39 @@
 .welcome {
-  text-align:center
+  text-align:center;
+  background-color: lightblue;
+}
+
+.welcome-title {
+  margin: 10px;
+  padding: 30px;
+  font-size: 35px;
+  color: white;
+}
+
+h2.start-headline span {
+  color: white;
+  background-color: lightgrey;
+  margin: 10px;
+}
+
+ul.navigate-groups {
+  list-style-type: none;
+  font-size: 20px;
+  margin: 20px;
+  padding: 0;
+  overflow: hidden;
+}
+
+ul.navigate-groups li {
+  margin: 10px 10px 20px 0;
+}
+
+.navigate-link {
+  margin-right: 10px;
+  padding: 5px;
+  background-color: lightgrey;
+}
+
+.navigate-link:hover {
+  color: white;
 }

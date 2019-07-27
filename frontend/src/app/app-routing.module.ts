@@ -5,8 +5,8 @@ import { TextSenderComponent } from './components/textSender/textSender.componen
 import { VoiceSenderComponent } from './components/voiceSender/voiceSender.component';
 
 const routes: Routes = [
-  { path: 'sendText', component: TextSenderComponent },
-  { path: 'sendVoice', component: VoiceSenderComponent },
+  { path: 'sendText', component: TextSenderComponent, data: {animation: 'sendText'} },
+  { path: 'sendVoice', component: VoiceSenderComponent, data: {animation: 'sendVoice'} },
 ];
 
 @NgModule({
