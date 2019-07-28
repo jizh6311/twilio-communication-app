@@ -5,7 +5,7 @@
   "scripts": {
     "docker:build": "docker build -t docker/twilio-communication-app .",
     "docker:start": "docker run -p 3000:3000 -d docker/twilio-communication-app",
-    "docker:run": "yarn docker:build && yarn docker:run",
+    "docker:run": "yarn docker:build && yarn docker:start",
     "start": "node server.js",
     "test": "echo \"No tests currently\""
   },
