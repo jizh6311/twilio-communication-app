@@ -675,6 +675,11 @@ amdefine@>=0.0.4:
   resolved "https://registry.npmjs.org/amdefine/-/amdefine-1.0.1.tgz#4a5282ac164729e93619bcfd3ad151f817ce91f5"
   integrity sha1-SlKCrBZHKek2Gbz9OtFR+BfOkfU=
 
+angular-d3-charts@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.npmjs.org/angular-d3-charts/-/angular-d3-charts-5.0.0.tgz#f8b53b06cea78cdc9bb761543172b65e09595863"
+  integrity sha1-+LU7Bs6njNybt2FUMXK2XglZWGM=
+
 ansi-colors@^3.0.0:
   version "3.2.4"
   resolved "https://registry.npmjs.org/ansi-colors/-/ansi-colors-3.2.4.tgz#e3a3da4bfbae6c86a9c285625de124a234026fbf"

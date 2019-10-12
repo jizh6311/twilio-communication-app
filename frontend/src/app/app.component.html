@@ -6,11 +6,17 @@
 </div>
 <h2 class="start-headline"><span>Here are some links to help you start</span></h2>
 
-<ul class="navigate-groups">
-  <li><span class="navigate-link" routerLink="/sendText" routerLinkActive="active">Text Center</span> <fa-icon class="icon" [icon]="['fas', 'sms']"></fa-icon></li>
-  <li><span class="navigate-link" routerLink="/sendVoice" routerLinkActive="active">Voice Center</span> <fa-icon class="icon" [icon]="['fas', 'phone']"></fa-icon></li>
-</ul>
+<div>
+  <ul class="navigate-groups">
+    <li><span class="navigate-link" routerLink="/sendText" routerLinkActive="active">Text Center</span> <fa-icon class="icon" [icon]="['fas', 'sms']"></fa-icon></li>
+    <li><span class="navigate-link" routerLink="/sendVoice" routerLinkActive="active">Voice Center</span> <fa-icon class="icon" [icon]="['fas', 'phone']"></fa-icon></li>
+  </ul>
 
-<div [@routeAnimations]="prepareRoute(outlet)" >
-  <router-outlet #outlet="outlet"></router-outlet>
+  <div [@routeAnimations]="prepareRoute(outlet)" >
+    <router-outlet #outlet="outlet"></router-outlet>
+    <div [className]="chartClass">
+      <h2>Communication chart this week</h2>
+      <angular-d3-donut [id]="donutChartId" [data]="donutChartData"></angular-d3-donut>
+    </div>
+  </div>
 </div>

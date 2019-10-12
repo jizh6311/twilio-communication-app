@@ -5,6 +5,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faPhone, faSms } from '@fortawesome/free-solid-svg-icons';
+import { DoughnutChartComponent } from 'angular-d3-charts';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -14,6 +15,7 @@ import { VoiceSenderComponent } from './components/voiceSender/voiceSender.compo
 @NgModule({
   declarations: [
     AppComponent,
+    DoughnutChartComponent,
     TextSenderComponent,
     VoiceSenderComponent
   ],
