@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Play with multiple Twilio Communication APIs for SMS, voice and video calls and etc",
   "scripts": {
-    "docker:build": "docker build -t docker/twilio-communication-app .",
-    "docker:start": "docker run -p 3000:3000 -d docker/twilio-communication-app",
+    "docker:build": "docker build -t jizh6311/twilio-communication-app .",
+    "docker:start": "docker run -p 3000:3000 -d jizh6311/twilio-communication-app",
     "docker:run": "yarn docker:build && yarn docker:start",
     "start": "node server.js",
     "test": "echo \"No tests currently\""
