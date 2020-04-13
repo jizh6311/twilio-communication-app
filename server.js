@@ -29,12 +29,13 @@ app.post('/communication/voice', function (req, res) {
 
 // Send message text
 app.post('/communication/message', function (req, res) {
-  const message = req.body.message;
+  const message = req.body.message,
+    toNumber = req.body.toNumber;
   client.messages
     .create({
        body: message,
        from: config.fromNumber,
-       to: config.toNumber
+       to: toNumber,
      })
     .then(message => res.send({
         message: message,

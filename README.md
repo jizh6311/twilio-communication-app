@@ -9,8 +9,7 @@ Play with multiple Twilio Communication APIs for SMS, voice and video calls and 
 {
   "accountSid": <accountSid>,
   "authToken": <authToken>,
-  "fromNumber": <twilio-number>,
-  "toNumber": <your-number>
+  "fromNumber": <twilio-number>
 }
 ```
 3. Run ```yarn start``` to start the services. Remember you have limited usage that can be checked on your dashboard.
