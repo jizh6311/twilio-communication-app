@@ -1,0 +1,20 @@
+FROM python:3.7
+
+# Set an environment variable with the directory
+# where we'll be running the app
+ENV APP /servers
+RUN mkdir $APP
+WORKDIR $APP
+
+ENV prometheus_multiproc_dir /prometheus_multiproc_dir
+RUN mkdir $prometheus_multiproc_dir
+
+# Python dependencies
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy the rest of the codebase into the image
+COPY . .
+
+# Finally, run uWSGI with the ini file
+CMD [ "uwsgi", "--ini", "flask_server.ini" ]

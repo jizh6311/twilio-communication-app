@@ -1,0 +1,20 @@
+version: '0.0.1'
+
+messages:
+  message1: Hello World!
+
+prometheus_query:
+
+  local:
+    prom_url: http://localhost:9090/api/v1/query?{}
+    metric_url: http://localhost:9090/api/v1/label/__name__/values
+    creds: ["agent", "password"]
+
+  simulation:
+    prom_url: http://prometheus:9090/api/v1/query?{}
+    metric_url: http://prometheus:9090/api/v1/label/__name__/values
+    creds: ["agent", "password"]
+
+anomaly_detection_model:
+  metric_loop:
+    metric_delay: 15

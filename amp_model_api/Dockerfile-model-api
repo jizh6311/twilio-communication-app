@@ -1,0 +1,19 @@
+FROM python:3.7
+
+ENV APP /api
+RUN mkdir $APP
+WORKDIR $APP
+
+ENV prometheus_multiproc_dir /prometheus_multiproc_dir
+RUN mkdir $prometheus_multiproc_dir
+
+# Python dependencies
+COPY requirements.txt .
+COPY ./dependencies/amp_tools-0.3.0.tar.gz .
+RUN pip install amp_tools-0.3.0.tar.gz
+RUN pip install -r requirements.txt
+
+# Copy the rest of the codebase into the image
+COPY . .
+
+CMD ["uwsgi", "--ini", "model_api.ini"]
