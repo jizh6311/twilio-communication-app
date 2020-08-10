@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "data-science-traffic-simulation"
+version = "0.1.0"
+description = ""
+authors = ["DrSkippy <scott@aspenmesh.io>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+jaeger-client = "^4.3.0"
+flask = "^1.1.2"
+requests = "^2.24.0"
+redis = "^3.5.3"
+"ruamel.yaml" = "^0.16.10"
+prometheus_flask_exporter = "^0.15.4"
+pyarrow = "^1.0.0"
+pandas = "^1.1.0"
+matplotlib = "^3.3.0"
+scipy = "^1.5.2"
+httpretty = "^1.0.2"
+s3fs = "^0.4.2"
+boto3 = "^1.14.37"
+pytest = "^6.0.1"
+uwsgi = "^2.0.19"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

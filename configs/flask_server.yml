@@ -1,5 +1,3 @@
-version: '0.0.1'
-
 endpoints:
         default:
                 mu: 0.2
