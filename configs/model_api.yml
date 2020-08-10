@@ -3,17 +3,22 @@ version: '0.0.1'
 messages:
   message1: Hello World!
 
-prometheus_query:
-
+api:
   local:
-    prom_url: http://localhost:9090/api/v1/query?{}
-    metric_url: http://localhost:9090/api/v1/label/__name__/values
-    creds: ["agent", "password"]
+    prometheus_query: http://localhost:9090/api/v1/query?{}
+    metric_names: http://localhost:9090/api/v1/label/__name__/values
+    credentials: ["agent", "password"]
+    jaeger_query: null
+    s3_archive: null
+    disk_archive: null
 
   simulation:
-    prom_url: http://prometheus:9090/api/v1/query?{}
-    metric_url: http://prometheus:9090/api/v1/label/__name__/values
-    creds: ["agent", "password"]
+    prometheus_query: http://prometheus:9090/api/v1/query?{}
+    metric_names: http://prometheus:9090/api/v1/label/__name__/values
+    credentials: ["agent", "password"]
+    jaeger_query: null
+    s3_archive: null
+    disk_archive: null
 
 anomaly_detection_model:
   metric_loop:

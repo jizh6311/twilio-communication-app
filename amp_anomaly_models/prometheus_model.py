@@ -1,20 +1,26 @@
 # coding: utf-8
-import redis
-import json
+"""
+Anomaly detection: query prometheus and analyze the streem for statistical outliers. Put them in redis.
+
+To build the docker image:
+    docker build . -f amp_anomaly_models/Dockerfile-model --tag amp-anomaly-models:1.0
+
+To run locally:
+    docker run --publish 6379:6379  redis:5.0-alpine --requirepass devpassword
+    docker run --publish 9090:9090 prom/prometheus
+    poetry run python amp_anomaly_models/prometheus_model.py
+"""
 import time
-import datetime
-import logging
 from operator import itemgetter
-
+import datetime
+import json
+import logging
+import redis
 import ruamel.yaml as yaml
-
-from amp_prometheus.prometheus_query import *
-from amp_prometheus.prometheus_collection_factory import ClusterMetricsCollectionFactory
 from amp_outliers.outliers import Outliers1d
-
-redis_inst = redis.StrictRedis(host='redis-server', port=6379, db=0,
-                               decode_responses=True,password="devpassword")
-redis_inst.client_setname("amp_model-outlier_model")
+from amp_configuration.config import EndpointConfiguration
+from amp_prometheus.prometheus_collection_factory import ClusterMetricsCollectionFactory
+from amp_prometheus.prometheus_query import *
 
 
 class OutlierNodeSumCountStrategy:
@@ -43,7 +49,7 @@ class OutlierNodeSumCountStrategy:
         logging.debug("n={} n_out={}, n_uniq={}, s={:.4f}".format(*result))
         return (n, n_out, n_uniq, s)
 
-    def analyze_metric(self, r, diag, agg, output_enabled, plots_enabled):
+    def analyze_metric(self, r, diag, agg, output_enabled=False, plots_enabled=False):
         (diag[-1]["n"],
          diag[-1]["n_out"],
          diag[-1]["uniq"],
@@ -64,28 +70,41 @@ class OutlierNodeSumCountStrategy:
 
 
 class OutlierTypeStrategy:
-    def create_metric_collection(self, metric_name, prototype, config, metric_type)):
+    def create_metric_collection(self, metric_name, prototype, config, metric_type, metric_labels):
         """Determines the right Analysis strategy for each metric type and returns
         the appropriate object"""
         res = None
         if metric_name.endswith("sum") or metric_name.endswith("count") or metric_name.endswith("total"):
-            res = MetricCollection(metric_name, config, OutlierNodeSumCountStrategy(), metric_type))
+            res = MetricCollection(metric_name, config, OutlierNodeSumCountStrategy(), metric_type)
         return res
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     logging.info("###############################################")
     logging.info("Starting model loop... ({})".format(datetime.datetime.utcnow()))
     logging.info("###############################################")
 
+    # docker or local?
+    if os.path.exists("./configs/model_api.yml"):
+        logging.info("Running locally from config file in ./configs...")
+        config_file_path = "./configs/model_api.yml"
+        redis_host = "localhost"
+        config_key = "local"
+    else:
+        config_file_path = "./model_api.yml"
+        redis_host = "redis-server"
+        config_key = "simulation"
+
     # model configuration from file. This must succeed.
-    with open("./model_api.yml", "r") as of:
+    config = EndpointConfiguration(config_file_path, config_key)
+    with open(config_file_path, "r") as of:
         model_config = yaml.safe_load(of)
         logging.info("read servers config file with keys={}".format(model_config.keys()))
-
-    # extract the local url/cred configs (used by prometheus_query
-    config = model_config["prometheus_query"]["simulation"]
     delay = int(model_config["anomaly_detection_model"]["metric_loop"]["metric_delay"])
+
+    redis_inst = redis.StrictRedis(host=redis_host, port=6379, db=0,
+                                   decode_responses=True, password="devpassword")
+    redis_inst.client_setname("amp_model-outlier_model")
 
     while True:
         vm = ClusterMetricsCollectionFactory(config, OutlierTypeStrategy())
@@ -94,13 +113,13 @@ if __name__ == "__main__":
         for x in vm.get_cluster_metrics_collection():
             logging.debug("-->query for {}".format(x.metric_name))
             x.query({}, "1h")
-            a, d = x.analyze_collection(plots=False, output=False, w=0.1
+            a, d = x.analyze_collection(plots=False, output=False, w=0.1)
             res.extend(x.metric_analysis_strategy_obj.metric_filter(d, w=0.1, os=-1))
-        #
-        res = sorted(res, key=itemgetter('outlier_score'), reverse=True)
-        # put results into redis
-        redis_inst.hset("outlier_scores", "timestamp", time.time())
-        redis_inst.hset("outlier_scores", "data", json.dumps(res))
-        logging.debug("result of size {} written to redis at timestamp {}".format(
-            len(res), time.time()))
-        time.sleep(delay)
+            #
+            res = sorted(res, key=itemgetter('outlier_score'), reverse=True)
+            # put results into redis
+            redis_inst.hset("outlier_scores", "timestamp", time.time())
+            redis_inst.hset("outlier_scores", "data", json.dumps(res))
+            logging.debug("result of size {} written to redis at timestamp {}".format(
+                len(res), time.time()))
+            time.sleep(delay)

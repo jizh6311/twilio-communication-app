@@ -21,6 +21,7 @@ s3fs = "^0.4.2"
 boto3 = "^1.14.37"
 pytest = "^6.0.1"
 uwsgi = "^2.0.19"
+amp-tools = {path = "dependencies/amp_tools-0.3.4-py3-none-any.whl"}
 
 [tool.poetry.dev-dependencies]
 

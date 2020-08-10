@@ -30,8 +30,8 @@ services:
   python-model:
     image: python-model
     build:
-      context: ./amp_model
-      dockerfile: Dockerfile-model
+      context: amp_anomaly_models
+      dockerfile: amp_anomaly_models/Dockerfile-anamoly-models
 #    expose:
 #      - 7699
     volumes:
