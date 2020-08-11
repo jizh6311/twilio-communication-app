@@ -7,7 +7,7 @@ services:
     volumes:
       - 'redis_data:/data'
     ports:
-      - '6379:6379'
+      - 6379:6379
     networks:
       main_network:
         aliases:
@@ -18,10 +18,10 @@ services:
     build:
       context: ./
       dockerfile: ./amp_simulated_servers/Dockerfile-simulated-servers
-    expose:
-      - 7599
-    volumes:
-      - "./amp_simulated_servers:/servers"
+    ports:
+      - 7599:7599
+#    volumes:
+#      - "./amp_simulated_servers:/servers"
     networks:
       main_network:
         aliases:
@@ -34,8 +34,8 @@ services:
       dockerfile: amp_anomaly_models/Dockerfile-anamoly-models
 #    expose:
 #      - 7699
-    volumes:
-      - "./amp_anomaly_models:/models"
+#    volumes:
+#      - "./amp_anomaly_models:/models"
     networks:
       main_network:
         aliases:
@@ -46,10 +46,10 @@ services:
     build:
       context: ./
       dockerfile: amp_model_api/Dockerfile-model-api
-    expose:
-      - 7699
-    volumes:
-      - "./amp_model_api:/servers"
+    ports:
+      - 7699:7699
+#    volumes:
+#      - "./amp_model_api:/servers"
     networks:
       main_network:
         aliases:
@@ -63,11 +63,11 @@ services:
   nginx:
     image: webapp-nginx
     build:
-      context: ./amp_model_api
-      dockerfile: Dockerfile-nginx
-    expose:
-      - 5000
-      - 9545
+      context: ./
+      dockerfile: ./amp_model_api/Dockerfile-nginx
+#     expose:
+#       - 5000
+#       - 9545
     ports:
       - 5000:5000
       - 9545:9545
