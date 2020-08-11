@@ -20,3 +20,26 @@ api:
 anomaly_detection_model:
   metric_loop:
     metric_delay: 15
+
+endpoints:
+  default:
+    mu: 0.2
+    sig: 0.3
+
+  main:
+    mu: 0.15
+    sig: 0.25
+
+  long_delay:
+    mu: 0.5
+    sig: 1.0
+
+  short_delay:
+    mu: 0.05
+    sig: 0.01
+
+  downstream:
+    host: nginx
+    port: 4090
+    mu: 0.05
+    sig: 0.01

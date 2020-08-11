@@ -90,13 +90,13 @@ if __name__ == "__main__":
     logging.info("###############################################")
 
     # docker or local?
-    if os.path.exists("./configs/model_api.yml"):
+    if os.path.exists("./configs/traffic_simulation.yml"):
         logging.info("Running locally from config file in ./configs...")
-        config_file_path = "./configs/model_api.yml"
+        config_file_path = "./configs/traffic_simulation.yml"
         redis_host = "localhost"
         config_key = "local"
     else:
-        config_file_path = "./model_api.yml"
+        config_file_path = "./traffic_simulation.yml"
         redis_host = "redis-server"
         config_key = "simulation"
 

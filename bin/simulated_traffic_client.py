@@ -11,12 +11,17 @@ threadLock = threading.Lock()
 class Client(threading.Thread):
 
     url = "http://localhost:5000/{}"
-    endpoints = ["", "no_delay", "item_type/{}",
+    endpoints = [
+                 "", "no_delay", "item_type/{}",
+                 "long_delay", "short_delay",
                  "long_delay", "short_delay",
                  "long_delay", "short_delay",
                  "long_delay", "short_delay",
                  "long_delay_outlier", "short_delay_outlier",
-                 "status/{}"]
+                 "status/{}",
+                 "downstream/long_delay", "downstream/long_delay_outlier",
+                 "downstream/short_delay", "downstream/short_delay_outlier",
+                 ]
     choices = ["cat", "dog", "hat", "car", "peanut", "bird", "200", "300", "404", "500"]
 
     def __init__(self, threadID, name, delay, N=100):

@@ -16,10 +16,11 @@ import time
 import json
 import os
 import random
+import requests
 import ruamel.yaml as yaml
 from flask import Flask, Response, request
 from flask_opentracing import FlaskTracer
-from jaeger_client import Config
+import jaeger_client
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics
 
 app = Flask(__name__)
@@ -29,11 +30,11 @@ metrics = UWsgiPrometheusMetrics(app, defaults_prefix='amp_sim')
 metrics.info('amp_simulated_server_info', 'Application info', version='0.0.3')
 
 # docker or local?
-if os.path.exists("./configs/flask_server.yml"):
+if os.path.exists("./configs/traffic_simulation.yml"):
     app.logger.info("Running locally from config file in ./configs...")
-    config_file_path = "./configs/flask_server.yml"
+    config_file_path = "./configs/traffic_simulation.yml"
 else:
-    config_file_path = "./flask_server.yml"
+    config_file_path = "./traffic_simulation.yml"
 
 with open(config_file_path, "r") as of:
     ep = yaml.safe_load(of)
@@ -41,7 +42,7 @@ with open(config_file_path, "r") as of:
 
 
 def initialize_tracer():
-    config = Config(
+    config = jaeger_client.Config(
         config={
             'sampler': {'type': 'const', 'param': 1},
             'local_agent': {
@@ -52,7 +53,6 @@ def initialize_tracer():
         service_name='amp-sim-server',
         validate=True)
     return config.initialize_tracer()  # also sets opentracing.tracer
-
 
 flask_tracer = FlaskTracer(initialize_tracer, True, app)
 
@@ -180,6 +180,29 @@ def echo_status(status):
     res, _ = delay("echo_status", status=status).delayed_response()
     return res
 
+
+@app.route('/downstream/<service_type>')
+@metrics.do_not_track()
+@metrics.counter('amp_sim_downstream_by_type', 'Number of invocations by downstream service type',
+                 labels={'service_type': lambda: request.view_args['service_type']})
+def downstream_service(service_type):
+    if "downstream" in ep["endpoints"]:
+        url = "http://{}:{}/{}".format(
+            ep["endpoints"]["downstream"]["host"],
+            ep["endpoints"]["downstream"]["port"],
+            service_type)
+        parent_span = flask_tracer.get_span()
+        with flask_tracer.tracer.start_span(
+                "downstream-{}".format(service_type),
+                        child_of=parent_span) as span:
+            span.set_tag("http.url", url)
+            result = requests.get(url)
+            span.set_tag("http.status_code", result.status_code)
+            result = result.json()
+    else:
+        result = {"msg": "configuration problem, no downstream request processed"}
+    res, _ = delay("downstream", service_type=service_type, downstream=result).delayed_response()
+    return res
 
 #################################################
 

@@ -32,6 +32,25 @@ services:
       - JAEGER_AGENT_PORT=6831
       - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
+  amp-sim-server0:
+    image: amp-sim-server0
+    build:
+      context: ./
+      dockerfile: ./amp_simulated_servers/Dockerfile-simulated-servers0
+    ports:
+      - 7590:7590
+#    volumes:
+#      - "./amp_simulated_servers:/servers"
+    networks:
+      main_network:
+        aliases:
+          - amp-sim-server0
+    environment:
+      - JAEGER_SERVICE_NAME=amp-sim-server
+      - JAEGER_AGENT_HOST=jaegertracing
+      - JAEGER_AGENT_PORT=6831
+      - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
+
   amp-anomaly-models:
     image: amp-anomaly-models
     build:
@@ -45,6 +64,8 @@ services:
       main_network:
         aliases:
           - amp-anomaly-models
+    depends_on:
+      - redis-server
 
   amp-model-api:
     image: amp-model-api
@@ -75,9 +96,11 @@ services:
 #       - 9545
     ports:
       - 5000:5000
+      - 4090:4090
       - 9545:9545
     depends_on:
       - amp-sim-server
+      - amp-sim-server0
       - amp-model-api
     networks:
       main_network:
