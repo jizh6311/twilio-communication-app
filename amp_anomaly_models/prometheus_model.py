@@ -9,6 +9,11 @@ To run locally:
     docker run --publish 6379:6379  redis:5.0-alpine --requirepass devpassword
     docker run --publish 9090:9090 prom/prometheus
     poetry run python amp_anomaly_models/prometheus_model.py
+
+
+    redis-cli -a devpassword
+    hgetall outlier_scores
+
 """
 import time
 from operator import itemgetter

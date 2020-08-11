@@ -16,6 +16,7 @@ RUN poetry config virtualenvs.create false
 
 ENV PYTHONPATH $APP
 COPY ./pyproject.toml ./poetry.lock $APP/
+COPY ./dependencies/amp_tools-0.3.4-py3-none-any.whl $APP/dependencies/amp_tools-0.3.4-py3-none-any.whl
 RUN poetry install --no-dev
 
 COPY ./amp_simulated_servers/* $APP/

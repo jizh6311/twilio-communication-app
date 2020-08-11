@@ -1,3 +1,15 @@
+"""
+
+    docker build . -f amp_model_api/Dockerfile-model-api --tag amp-model-api:1.0
+
+
+To run locally:
+    docker run --publish 6379:6379  redis:5.0-alpine --requirepass devpassword
+    docker run --publish 9090:9090 prom/prometheus
+    poetry run python amp_model_api/model_api.py
+
+    http://localhost:9545/api/v1/query?query=prometheus_http_response_size_bytes_count
+"""
 import json
 
 from flask import Flask, request, Response, Blueprint
@@ -7,6 +19,7 @@ import ruamel.yaml as yaml
 import redis
 
 from amp_prometheus.prometheus_query import *
+from amp_configuration.config import EndpointConfiguration
 from amp_prometheus.prometheus_collection_factory import ClusterMetricsCollectionFactory, TypeStrategy
 
 av1 = Blueprint('amp_model_api', __name__, template_folder='templates')
@@ -15,16 +28,25 @@ app = Flask(__name__)
 prom_metrics = UWsgiPrometheusMetrics(app, defaults_prefix='amp_model')
 prom_metrics.info('amp_model_api_info', 'Model Application Info', version='0.0.1')
 
+# docker or local?
+if os.path.exists("./configs/model_api.yml"):
+    logging.info("Running locally from config file in ./configs...")
+    config_file_path = "./configs/model_api.yml"
+    redis_host = "localhost"
+    config_key = "local"
+else:
+    config_file_path = "./model_api.yml"
+    redis_host = "redis-server"
+    config_key = "simulation"
+
 # model configuration from file. This must succeed.
-with open("./model_api.yml", "r") as of:
+config = EndpointConfiguration(config_file_path, config_key)
+with open(config_file_path, "r") as of:
     model_config = yaml.safe_load(of)
     app.logger.info("read servers config file with keys={}".format(model_config.keys()))
 
-# extract the local url/cred configs (used by prometheus_query
-config = model_config["prometheus_query"]["simulation"]
-
-redis_inst = redis.StrictRedis(host='redis-server', port=6379, db=0,
-                               decode_responses=True,password="devpassword")
+redis_inst = redis.StrictRedis(host=redis_host, port=6379, db=0,
+                               decode_responses=True, password="devpassword")
 redis_inst.client_setname("amp_model_api")
 
 ##########################################

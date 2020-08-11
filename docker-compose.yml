@@ -13,47 +13,47 @@ services:
         aliases:
           - redis-server
 
-  flask-servers:
-    image: flask-servers
+  amp-sim-server:
+    image: amp-sim-server
     build:
-      context: ./amp_simulated_servers
-      dockerfile: Dockerfile-servers
+      context: ./
+      dockerfile: ./amp_simulated_servers/Dockerfile-simulated-servers
     expose:
       - 7599
     volumes:
-      - "./amp_simulated_servers/servers:/servers"
+      - "./amp_simulated_servers:/servers"
     networks:
       main_network:
         aliases:
-          - flask-servers
+          - amp-sim-server
 
-  python-model:
-    image: python-model
+  amp-anomaly-models:
+    image: amp-anomaly-models
     build:
-      context: amp_anomaly_models
+      context: ./
       dockerfile: amp_anomaly_models/Dockerfile-anamoly-models
 #    expose:
 #      - 7699
     volumes:
-      - "./amp_model/models:/models"
+      - "./amp_anomaly_models:/models"
     networks:
       main_network:
         aliases:
-          - python-model
+          - amp-anomaly-models
 
-  flask-model:
-    image: flask-model
+  amp-model-api:
+    image: amp-model-api
     build:
-      context: ./amp_model_api
-      dockerfile: Dockerfile-model-api
+      context: ./
+      dockerfile: amp_model_api/Dockerfile-model-api
     expose:
       - 7699
     volumes:
-      - "./amp_model_api/api:/api"
+      - "./amp_model_api:/servers"
     networks:
       main_network:
         aliases:
-          - flask-model
+          - amp-model-api
     environment:
       - JAEGER_SERVICE_NAME=hello_service
       - JAEGER_AGENT_HOST=jaeger
@@ -72,8 +72,8 @@ services:
       - 5000:5000
       - 9545:9545
     depends_on:
-      - flask-servers
-      - flask-model
+      - amp-sim-server
+      - amp-model-api
     networks:
       main_network:
         aliases:
@@ -83,7 +83,7 @@ services:
     image: prom/prometheus
     container_name: prometheus
     volumes:
-      - ./amp_model_api/config/prometheus/:/etc/prometheus/
+      - ./configs/prometheus/:/etc/prometheus/
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -122,6 +122,10 @@ services:
       - "16686:16686"
       - "14268:14268"
       - "9411:9411"
+    networks:
+      main_network:
+        aliases:
+          - jaegertracing
 
 volumes:
   prometheus_data: {}

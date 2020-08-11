@@ -2,7 +2,7 @@
 Service with random delays at various endpoints.  Instrumented with Prometheus and Tracing.
 
 From root of repo:
-    docker build . -f amp_simulated_servers/Dockerfile-servers --tag amp-sim-server:1.0
+    docker build . -f amp_simulated_servers/Dockerfile-simulated-servers --tag amp-sim-server:1.0
     docker run --publish 5000:7599 amp-sim-server:1.0
 
 Either disconnect or from another terminal:
