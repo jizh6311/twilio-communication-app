@@ -12,11 +12,14 @@ Metrics at:
     http://localhost:5000/metrics
 """
 import time
-import os
+
 import json
+import os
 import random
 import ruamel.yaml as yaml
 from flask import Flask, Response, request
+from flask_opentracing import FlaskTracer
+from jaeger_client import Config
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics
 
 app = Flask(__name__)
@@ -35,6 +38,23 @@ else:
 with open(config_file_path, "r") as of:
     ep = yaml.safe_load(of)
     app.logger.info("Loaded servers config file with keys={}".format(ep.keys()))
+
+
+def initialize_tracer():
+    config = Config(
+        config={
+            'sampler': {'type': 'const', 'param': 1},
+            'local_agent': {
+                'reporting_host': 'jaegertracing',
+                'reporting_port': '6831',
+            },
+            'logging': True},
+        service_name='amp-sim-server',
+        validate=True)
+    return config.initialize_tracer()  # also sets opentracing.tracer
+
+
+flask_tracer = FlaskTracer(initialize_tracer, True, app)
 
 
 class delay():

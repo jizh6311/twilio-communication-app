@@ -14,6 +14,8 @@ import json
 
 from flask import Flask, request, Response, Blueprint
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics
+from flask_opentracing import FlaskTracer
+from jaeger_client import Config
 
 import ruamel.yaml as yaml
 import redis
@@ -44,6 +46,22 @@ config = EndpointConfiguration(config_file_path, config_key)
 with open(config_file_path, "r") as of:
     model_config = yaml.safe_load(of)
     app.logger.info("read servers config file with keys={}".format(model_config.keys()))
+
+def initialize_tracer():
+    config = Config(
+        config={
+            'sampler': {'type': 'const', 'param': 1},
+            'local_agent': {
+                'reporting_host': 'jaegertracing',
+                'reporting_port': '6831',
+            },
+            'logging': True},
+        service_name='amp-model-api',
+        validate=True)
+    return config.initialize_tracer()  # also sets opentracing.tracer
+
+
+flask_tracer = FlaskTracer(initialize_tracer, True, app)
 
 redis_inst = redis.StrictRedis(host=redis_host, port=6379, db=0,
                                decode_responses=True, password="devpassword")

@@ -26,6 +26,11 @@ services:
       main_network:
         aliases:
           - amp-sim-server
+    environment:
+      - JAEGER_SERVICE_NAME=amp-sim-server
+      - JAEGER_AGENT_HOST=jaegertracing
+      - JAEGER_AGENT_PORT=6831
+      - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
   amp-anomaly-models:
     image: amp-anomaly-models
@@ -55,8 +60,8 @@ services:
         aliases:
           - amp-model-api
     environment:
-      - JAEGER_SERVICE_NAME=hello_service
-      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_SERVICE_NAME=amp-model-api
+      - JAEGER_AGENT_HOST=jaegertracing
       - JAEGER_AGENT_PORT=6831
       - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
