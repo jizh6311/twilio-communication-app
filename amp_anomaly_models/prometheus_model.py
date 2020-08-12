@@ -1,19 +1,21 @@
 # coding: utf-8
 """
-Anomaly detection: query prometheus and analyze the streem for statistical outliers. Put them in redis.
+Anomaly detection: query prometheus and analyze the stream for statistical outliers. Put them in redis.
 
 To build the docker image:
-    docker build . -f amp_anomaly_models/Dockerfile-model --tag amp-anomaly-models:1.0
+    docker build . -f amp_anomaly_models/Dockerfile-anamoly-models --tag amp-anomaly-models:1.0
 
 To run locally:
     docker run --publish 6379:6379  redis:5.0-alpine --requirepass devpassword
     docker run --publish 9090:9090 prom/prometheus
     poetry run python amp_anomaly_models/prometheus_model.py
 
-
+Connect to the redis server to see outputs:
     redis-cli -a devpassword
     hgetall outlier_scores
 
+Unit tests will run properly if docker images are downloaded:
+    poetry run pytest test/test_amp_anomaly_models.py
 """
 import time
 from operator import itemgetter
@@ -83,12 +85,7 @@ class OutlierTypeStrategy:
             res = MetricCollection(metric_name, config, OutlierNodeSumCountStrategy(), metric_type)
         return res
 
-
-if __name__ == "__main__":
-    logging.info("###############################################")
-    logging.info("Starting model loop... ({})".format(datetime.datetime.utcnow()))
-    logging.info("###############################################")
-
+def main_loop():
     # docker or local?
     if os.path.exists("./configs/traffic_simulation.yml"):
         logging.info("Running locally from config file in ./configs...")
@@ -128,3 +125,9 @@ if __name__ == "__main__":
             logging.debug("result of size {} written to redis at timestamp {}".format(
                 len(res), time.time()))
             time.sleep(delay)
+
+if __name__ == "__main__":
+    logging.info("###############################################")
+    logging.info("Starting model loop... ({})".format(datetime.datetime.utcnow()))
+    logging.info("###############################################")
+    main_loop()

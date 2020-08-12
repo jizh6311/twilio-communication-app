@@ -11,8 +11,10 @@ Either disconnect or from another terminal:
 Metrics at:
     http://localhost:5000/metrics
 """
+__version__ = '0.1.0'
 import time
 
+import jaeger_client
 import json
 import os
 import random
@@ -20,27 +22,24 @@ import requests
 import ruamel.yaml as yaml
 from flask import Flask, Response, request
 from flask_opentracing import FlaskTracer
-import jaeger_client
 from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics
 
 app = Flask(__name__)
 metrics = UWsgiPrometheusMetrics(app, defaults_prefix='amp_sim')
+metrics.info('amp_simulated_server_info', 'Application info', version=__version__)
 
-# static information as metric
-metrics.info('amp_simulated_server_info', 'Application info', version='0.0.3')
-
-# docker or local?
+# configuration file: docker or local?
 if os.path.exists("./configs/traffic_simulation.yml"):
     app.logger.info("Running locally from config file in ./configs...")
     config_file_path = "./configs/traffic_simulation.yml"
 else:
+    # dockers deploy yml to root application directory
     config_file_path = "./traffic_simulation.yml"
-
 with open(config_file_path, "r") as of:
     ep = yaml.safe_load(of)
     app.logger.info("Loaded servers config file with keys={}".format(ep.keys()))
 
-
+# tracing
 def initialize_tracer():
     config = jaeger_client.Config(
         config={
@@ -53,11 +52,10 @@ def initialize_tracer():
         service_name='amp-sim-server',
         validate=True)
     return config.initialize_tracer()  # also sets opentracing.tracer
-
 flask_tracer = FlaskTracer(initialize_tracer, True, app)
 
-
-class delay():
+##########################################
+class Delay():
     """
     Base delay class for generating random response times
     """
@@ -65,15 +63,24 @@ class delay():
     def __init__(self, endpoint="default", outlier_prob=0.0, **kwargs):
         self.endpoint = endpoint
         self.outlier_prob = outlier_prob
-        if self.endpoint in ep["endpoints"]:
-            self.mu = ep["endpoints"][self.endpoint]["mu"]
-            self.sig = ep["endpoints"][self.endpoint]["sig"]
+        if endpoint.endswith("_outlier"):
+            key = endpoint[:-8]
+            app.logger.debug('outlier endpoint, key={}'.format(key))
+        else:
+            key = endpoint
+        if key in ep["endpoints"]:
+            self.mu = ep["endpoints"][key]["mu"]
+            self.sig = ep["endpoints"][key]["sig"]
         elif "default" in ep["endpoints"]:
             self.mu = ep["endpoints"]["default"]["mu"]
             self.sig = ep["endpoints"]["default"]["sig"]
         self.data = kwargs
 
     def delayed_response(self):
+        """
+        Use class parameters to (1) delay for a random time and (2) package up a json
+        payload describing the delay  and return a flask response.
+        """
         if self.sig == 0.0:
             t = self.mu
         else:
@@ -105,7 +112,7 @@ class delay():
 #################################################
 @app.route('/')
 def main():
-    res, _ = delay("/").delayed_response()
+    res, _ = Delay("/").delayed_response()
     return res
 
 
@@ -113,7 +120,9 @@ def main():
 def no_delay():
     data = json.dumps({
         "endpoint": "no_delay",
-        "params": {"mu": 0, "sig": 0},
+        "params": {
+            "mu": 0,
+            "sig": 0},
         "delay": 0
     })
     response_headers = [
@@ -125,14 +134,17 @@ def no_delay():
 
 @app.route('/item_type/<item_type>')
 @metrics.do_not_track()
+# only the counter is collected, not the default metrics
 @metrics.counter('amp_sim_invocation_by_type', 'Number of invocations by type',
                  labels={'item_type': lambda: request.view_args['item_type']})
 def by_type(item_type):
-    # only the counter is collected, not the default metrics
     data = json.dumps({
         "endpoint": "item_type",
         "item_type": item_type,
-        "params": {"mu": 0, "sig": 0},
+        "params": {
+            "mu": 0,
+            "sig": 0
+        },
         "delay": 0
     })
     response_headers = [
@@ -145,28 +157,28 @@ def by_type(item_type):
 @app.route('/long_delay')
 @metrics.gauge('amp_sim_long_delay_in_progress', 'Long running requests in progress')
 def long_delay():
-    res, dt = delay("long_delay").delayed_response()
+    res, dt = Delay("long_delay").delayed_response()
     return res
 
 
 @app.route('/long_delay_outlier')
 @metrics.gauge('amp_sim_long_delay_outlier_in_progress', 'Long running requests in progress')
 def long_delay_outlier():
-    res, dt = delay("long_delay_outlier", outlier_prob=0.1).delayed_response()
+    res, dt = Delay("long_delay_outlier", outlier_prob=0.1).delayed_response()
     return res
 
 
 @app.route('/short_delay')
 @metrics.gauge('amp_sim_short_delay_in_progress', 'Short running requests in progress')
 def short_delay():
-    res, dt = delay("short_delay").delayed_response()
+    res, dt = Delay("short_delay").delayed_response()
     return res
 
 
 @app.route('/short_delay_outlier')
 @metrics.gauge('amp_sim_short_delay_outlier_in_progress', 'Short running requests in progress')
 def short_delay_outlier():
-    res, dt = delay("short_delay_outlier", outlier_prob=0.1).delayed_response()
+    res, dt = Delay("short_delay_outlier", outlier_prob=0.1).delayed_response()
     return res
 
 
@@ -177,7 +189,7 @@ def short_delay_outlier():
 @metrics.histogram('requests_by_status_and_path', 'Request latencies by status and path',
                    labels={'status': lambda r: r.status_code, 'path': lambda: request.path})
 def echo_status(status):
-    res, _ = delay("echo_status", status=status).delayed_response()
+    res, _ = Delay("echo_status", status=status).delayed_response()
     return res
 
 
@@ -194,18 +206,18 @@ def downstream_service(service_type):
         parent_span = flask_tracer.get_span()
         with flask_tracer.tracer.start_span(
                 "downstream-{}".format(service_type),
-                        child_of=parent_span) as span:
+                child_of=parent_span) as span:
             span.set_tag("http.url", url)
             result = requests.get(url)
             span.set_tag("http.status_code", result.status_code)
             result = result.json()
     else:
         result = {"msg": "configuration problem, no downstream request processed"}
-    res, _ = delay("downstream", service_type=service_type, downstream=result).delayed_response()
+    res, _ = Delay("downstream", service_type=service_type, downstream=result).delayed_response()
     return res
 
-#################################################
 
+#################################################
 @app.route('/metrics')
 def metrics():
     """

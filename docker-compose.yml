@@ -7,7 +7,7 @@ services:
     volumes:
       - 'redis_data:/data'
     ports:
-      - 6379:6379
+      - "6379"
     networks:
       main_network:
         aliases:
@@ -18,48 +18,34 @@ services:
     build:
       context: ./
       dockerfile: ./amp_simulated_servers/Dockerfile-simulated-servers
+      args:
+        LAUNCHER_INI: flask_server.ini
     ports:
-      - 7599:7599
-#    volumes:
-#      - "./amp_simulated_servers:/servers"
+      - "7599"
     networks:
       main_network:
         aliases:
           - amp-sim-server
-    environment:
-      - JAEGER_SERVICE_NAME=amp-sim-server
-      - JAEGER_AGENT_HOST=jaegertracing
-      - JAEGER_AGENT_PORT=6831
-      - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
   amp-sim-server0:
     image: amp-sim-server0
     build:
       context: ./
-      dockerfile: ./amp_simulated_servers/Dockerfile-simulated-servers0
+      dockerfile: ./amp_simulated_servers/Dockerfile-simulated-servers
+      args:
+        LAUNCHER_INI: flask_server0.ini
     ports:
-      - 7590:7590
-#    volumes:
-#      - "./amp_simulated_servers:/servers"
+      - "7590"
     networks:
       main_network:
         aliases:
           - amp-sim-server0
-    environment:
-      - JAEGER_SERVICE_NAME=amp-sim-server
-      - JAEGER_AGENT_HOST=jaegertracing
-      - JAEGER_AGENT_PORT=6831
-      - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
   amp-anomaly-models:
     image: amp-anomaly-models
     build:
       context: ./
-      dockerfile: amp_anomaly_models/Dockerfile-anamoly-models
-#    expose:
-#      - 7699
-#    volumes:
-#      - "./amp_anomaly_models:/models"
+      dockerfile: amp_anomaly_models/Dockerfile-anomaly-models
     networks:
       main_network:
         aliases:
@@ -73,31 +59,26 @@ services:
       context: ./
       dockerfile: amp_model_api/Dockerfile-model-api
     ports:
-      - 7699:7699
-#    volumes:
-#      - "./amp_model_api:/servers"
+      - "7699"
     networks:
       main_network:
         aliases:
           - amp-model-api
-    environment:
-      - JAEGER_SERVICE_NAME=amp-model-api
-      - JAEGER_AGENT_HOST=jaegertracing
-      - JAEGER_AGENT_PORT=6831
-      - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
+#     environment:
+#       - JAEGER_SERVICE_NAME=amp-model-api
+#       - JAEGER_AGENT_HOST=jaegertracing
+#       - JAEGER_AGENT_PORT=6831
+#       - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
   nginx:
     image: webapp-nginx
     build:
       context: ./
       dockerfile: ./amp_model_api/Dockerfile-nginx
-#     expose:
-#       - 5000
-#       - 9545
     ports:
-      - 5000:5000
-      - 4090:4090
-      - 9545:9545
+      - "5000:5000"
+      - "4090:4090"
+      - "9545:9545"
     depends_on:
       - amp-sim-server
       - amp-sim-server0
@@ -116,9 +97,9 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
     expose:
-      - 9090
+      - "9090"
     ports:
-      - 9090:9090
+      - "9090:9090"
     networks:
       main_network:
         aliases:
@@ -129,7 +110,7 @@ services:
     depends_on:
       - prometheus
     ports:
-      - 3000:3000
+      - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     environment:

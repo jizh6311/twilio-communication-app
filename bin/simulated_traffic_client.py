@@ -22,6 +22,7 @@ class Client(threading.Thread):
                  "downstream/long_delay", "downstream/long_delay_outlier",
                  "downstream/short_delay", "downstream/short_delay_outlier",
                  ]
+    # non ints will cause errors for status/{int} end point - ok for stats
     choices = ["cat", "dog", "hat", "car", "peanut", "bird", "200", "300", "404", "500"]
 
     def __init__(self, threadID, name, delay, N=100):

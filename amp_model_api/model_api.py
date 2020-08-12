@@ -11,18 +11,15 @@ To run locally:
     http://localhost:9545/api/v1/query?query=prometheus_http_response_size_bytes_count
 """
 import json
-
-from flask import Flask, request, Response, Blueprint
-from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics
-from flask_opentracing import FlaskTracer
-from jaeger_client import Config
-
-import ruamel.yaml as yaml
 import redis
-
-from amp_prometheus.prometheus_query import *
+import ruamel.yaml as yaml
 from amp_configuration.config import EndpointConfiguration
 from amp_prometheus.prometheus_collection_factory import ClusterMetricsCollectionFactory, TypeStrategy
+from amp_prometheus.prometheus_query import *
+from flask import Blueprint, Flask, Response, request
+from flask_opentracing import FlaskTracer
+from jaeger_client import Config
+from prometheus_flask_exporter.multiprocess import UWsgiPrometheusMetrics
 
 av1 = Blueprint('amp_model_api', __name__, template_folder='templates')
 app = Flask(__name__)
@@ -40,12 +37,11 @@ else:
     config_file_path = "./traffic_simulation.yml"
     redis_host = "redis-server"
     config_key = "simulation"
-
-# model configuration from file. This must succeed.
 config = EndpointConfiguration(config_file_path, config_key)
 with open(config_file_path, "r") as of:
     model_config = yaml.safe_load(of)
     app.logger.info("read servers config file with keys={}".format(model_config.keys()))
+
 
 def initialize_tracer():
     config = Config(
@@ -59,8 +55,6 @@ def initialize_tracer():
         service_name='amp-model-api',
         validate=True)
     return config.initialize_tracer()  # also sets opentracing.tracer
-
-
 flask_tracer = FlaskTracer(initialize_tracer, True, app)
 
 redis_inst = redis.StrictRedis(host=redis_host, port=6379, db=0,
@@ -68,7 +62,6 @@ redis_inst = redis.StrictRedis(host=redis_host, port=6379, db=0,
 redis_inst.client_setname("amp_model_api")
 
 ##########################################
-
 @av1.route('/configuration')
 def info():
     # listing of metrics
@@ -78,7 +71,7 @@ def info():
             "connection_id": redis_inst.client_id(),
             "client_list": redis_inst.client_list(),
             "server_info": redis_inst.info()
-                  }
+        }
     }
     data = json.dumps(config_json)
     response_headers = [
@@ -87,15 +80,22 @@ def info():
     ]
     return Response(response=data, status=200, headers=response_headers)
 
+
 @av1.route('/prototypes')
 def prototypes():
-    cmf = ClusterMetricsCollectionFactory(config, TypeStrategy())
+    parent_span = flask_tracer.get_span()
+    with flask_tracer.tracer.start_span(
+            "prometheus_query",
+            child_of=parent_span) as span:
+        span.set_tag("query.type", "prototype")
+        cmf = ClusterMetricsCollectionFactory(config, TypeStrategy())
     data = "<pre>" + cmf.show_metric_prototype() + "</pre>"
     response_headers = [
         ('Content-type', 'text/html'),
         ('Content-Length', str(len(data)))
     ]
     return Response(response=data, status=200, headers=response_headers)
+
 
 @av1.route('/query')
 def query():
@@ -113,17 +113,22 @@ def query():
 
     if labels_str is not None and labels_str != "":
         for x in labels_str.split(","):
-            [a,b] = x.split("=")
+            [a, b] = x.split("=")
             labels_dict[a.strip(' "')] = b.strip(' "')
 
-    cmf = ClusterMetricsCollectionFactory(config, TypeStrategy())
-    mc = cmf.create_metric_collection(metric_name).query(arguments=labels_dict,period="5m")
+    parent_span = flask_tracer.get_span()
+    with flask_tracer.tracer.start_span(
+            "prometheus_query",
+            child_of=parent_span) as span:
+        span.set_tag("query.type", "metric")
+        cmf = ClusterMetricsCollectionFactory(config, TypeStrategy())
+        mc = cmf.create_metric_collection(metric_name).query(arguments=labels_dict, period="5m")
     a, d = mc.analyze_collection(plots=False, output=False)
 
-    out = { "name": metric_name,
-            "query_labels": labels_dict,
-            "aggregated": a,
-            "diagnostic": d}
+    out = {"name": metric_name,
+           "query_labels": labels_dict,
+           "aggregated": a,
+           "diagnostic": d}
     data = json.dumps(out, cls=MetricEncoder)
     response_headers = [
         ('Content-type', 'application/json'),
@@ -131,12 +136,23 @@ def query():
     ]
     return Response(response=data, status=200, headers=response_headers)
 
+
 @av1.route('/outlier_scores')
 def outlier_scores():
     n = int(request.args.get('n', 10))
-
-    res = redis_inst.hgetall("outlier_scores")
-    data_list = json.loads(res['data'])[:n]
+    parent_span = flask_tracer.get_span()
+    with flask_tracer.tracer.start_span(
+            "outlier_scores_redis",
+            child_of=parent_span) as span:
+        span.set_tag("redis.host", redis_host)
+        res = redis_inst.hgetall("outlier_scores")
+        if 'data' in res:
+            data_list = json.loads(res['data'])[:n]
+            span.set_tag("redis.host.response", "ok")
+        else:
+            data_list = []
+            span.set_tag("redis.host.response", "empty")
+            span.set_tag("error", True)
     timestamp = res['timestamp']
     data = json.dumps({"timestamp": timestamp, "data": data_list})
     response_headers = [
@@ -145,28 +161,12 @@ def outlier_scores():
     ]
     return Response(response=data, status=200, headers=response_headers)
 
-@av1.route('/increment_counter')
-def increment_counter():
-    from prometheus_client import multiprocess, CollectorRegistry, Counter
-    registry = CollectorRegistry()
-    multiprocess.MultiProcessCollector(registry)
-
-    sctr = Counter("synthetic_test_counter",
-            "Total inc of the synthetic counter",
-            ('a','b'),
-            registry=registry)
-    sctr.labels("monday", "tuesday").inc()
-    app.logger.info("test counter incremented")
-    response_headers = [
-        ('Content-type', 'text/html')
-    ]
-    return Response(response="test_counter incremented", status=200, headers=response_headers)
 
 # register after definitions
 app.register_blueprint(av1, url_prefix='/api/v1')
 
-##########################################
 
+##########################################
 @app.route('/metrics')
 def metrics():
     from prometheus_client import multiprocess, CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
@@ -178,6 +178,7 @@ def metrics():
         ('Content-Length', str(len(data)))
     ]
     return Response(response=data, status=200, headers=response_headers)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=9545)

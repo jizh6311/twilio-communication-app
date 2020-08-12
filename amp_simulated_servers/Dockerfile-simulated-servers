@@ -25,4 +25,11 @@ COPY ./configs/* $APP/
 ENV prometheus_multiproc_dir /prometheus_multiproc_dir
 RUN mkdir $prometheus_multiproc_dir
 
-ENTRYPOINT ["poetry", "run", "uwsgi", "--ini", "flask_server.ini" ]
+#ENTRYPOINT ["poetry", "run", "uwsgi", "--ini", "flask_server.ini" ]
+
+# Set an env variable from the build arg that is substituted at runtime
+ARG LAUNCHER_INI
+ENV ENV_LAUNCHER_INI=$LAUNCHER_INI
+RUN echo ${ENV_LAUNCHER_INI}
+
+ENTRYPOINT poetry run uwsgi --ini ${ENV_LAUNCHER_INI}
