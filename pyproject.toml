@@ -24,6 +24,7 @@ uwsgi = "^2.0.19"
 amp-tools = {path = "dependencies/amp_tools-0.3.4-py3-none-any.whl"}
 jaeger_client = "^4.3.0"
 flask_opentracing = "^1.1.0"
+kafka-python = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
 
