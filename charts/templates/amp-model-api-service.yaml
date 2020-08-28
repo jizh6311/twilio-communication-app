@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o kompose-factory
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: amp-model-api
+  name: amp-model-api
+spec:
+  ports:
+  - name: "7699"
+    port: 7699
+    targetPort: 7699
+  selector:
+    io.kompose.service: amp-model-api
+status:
+  loadBalancer: {}

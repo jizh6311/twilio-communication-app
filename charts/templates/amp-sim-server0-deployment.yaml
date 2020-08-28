@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o kompose-factory
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: amp-sim-server0
+  name: amp-sim-server0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: amp-sim-server0
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.yml -o kompose-factory
+        kompose.version: 1.21.0 (992df58d8)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/main_network: "true"
+        io.kompose.service: amp-sim-server0
+    spec:
+      containers:
+      - image: amp-sim-server0
+        imagePullPolicy: ""
+        name: amp-sim-server0
+        ports:
+        - containerPort: 7590
+        resources: {}
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes: null
+status: {}

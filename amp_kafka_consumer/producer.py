@@ -3,6 +3,7 @@ from json import dumps
 
 producer = KafkaProducer(
    value_serializer=lambda m: dumps(m).encode('utf-8'),
-   bootstrap_servers=['localhost:9092', '172.17.0.1:32783','172.17.0.1:32782','172.17.0.1:32781'])
+   bootstrap_servers=['localhost:9092'])
 
-producer.send("test", value={"hello": "producer"})
+for i in range(5):
+   producer.send("test", value={"hello": "producer-{}".format(i)})

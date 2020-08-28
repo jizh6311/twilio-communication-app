@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.yml -o kompose-factory
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redis-server
+  name: redis-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: redis-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -f docker-compose.yml -o kompose-factory
+        kompose.version: 1.21.0 (992df58d8)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/main_network: "true"
+        io.kompose.service: redis-server
+    spec:
+      containers:
+      - args:
+        - redis-server
+        - --requirepass
+        - devpassword
+        image: redis:5.0-alpine
+        imagePullPolicy: ""
+        name: redis-server
+        ports:
+        - containerPort: 6379
+        resources: {}
+        volumeMounts:
+        - mountPath: /data
+          name: redis-data
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-data
+status: {}

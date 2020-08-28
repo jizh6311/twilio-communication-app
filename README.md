@@ -77,3 +77,4 @@ Python 3.6+, then,
 	pip install virtualenv
 
 
+kompose convert -o kompose-factory/ && kubectl apply -f kompose-factory/
