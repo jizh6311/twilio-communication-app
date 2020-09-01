@@ -1,35 +1,25 @@
 from kafka import KafkaConsumer
 from json import loads
 
-topic_name = 'test'
+topic_name = 'jaeger-spans'
+#topic_name = 'test'
+group_id = 'my_group_id'
+group_id = None
+
+# To consume latest messages and auto-commit offsets
 
 consumer = KafkaConsumer(topic_name,
-                     bootstrap_servers=['localhost:9093'],
-                     auto_offset_reset='earliest',
-                     enable_auto_commit=True,
-                     group_id=None,
-                     value_deserializer=lambda x: loads(x.decode('utf-8')))
+                         group_id=group_id,
+                         bootstrap_servers=['localhost:9093'],
+                         value_deserializer=lambda m: loads(m.decode('utf-8')))
 
-print("Consuming messages from the given topic")
+print("Consuming topic = '{}' with group_id = '{}'".format(topic_name, group_id))
+
 for message in consumer:
-    print("Message", message)
-    if message is not None:
-        print(message.offset, message.value)
+    # message value and key are raw bytes -- decode if necessary!
+    # e.g., for unicode: `message.value.decode('utf-8')`
+    print ("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
+                                          message.offset, message.key,
+                                          message.value))
 
 print("Quit")
-
-
-
-
-#
-# consumer = KafkaConsumer(
-#    'test',
-#     auto_offset_reset='earliest',
-#     enable_auto_commit=True,
-#     group_id=None,
-#     #group_id='my-group-1',
-#     value_deserializer=lambda m: loads(m.decode('utf-8')),
-#     bootstrap_servers=['localhost:9092'])
-#
-# for m in consumer:
-#     print(m.value)

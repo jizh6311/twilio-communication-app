@@ -21,7 +21,8 @@ services:
       - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CREATE_TOPICS=jaeger-spans:2:1
+      - KAFKA_CREATE_TOPICS=jaeger-spans:4:1
+      - KAFKA_DELETE_TOPIC_ENABLE=true
     depends_on:
       - zookeeper
 
@@ -121,10 +122,11 @@ services:
     environment:
       - SPAN_STORAGE_TYPE=kafka
       - METRICS_BACKEND=prometheus
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - KAFKA_PRODUCER_BROKERS=kafka:9092
       - KAFKA_PRODUCER_TOPIC=jaeger_spans
       - KAFKA_PRODUCER_TLS_ENABLED=false
+    restart: on-failure
 
 volumes:
   prometheus_data: {}
