@@ -3,35 +3,27 @@ version: '3'
 services:
   zookeeper:
     image: 'bitnami/zookeeper:latest'
-    hostname: zookeeper
     ports:
       - '2181:2181'
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
-    ports:
-     - "2181:2181"
-    volumes:
-      - ~/kafka/data/zookeeper_data:/var/lib/zookeeper/data
-      - ~/kafka/data/zookeeper_log:/var/lib/zookeeper/log
-    networks:
-      main_network:
-        aliases:
-          - zookeeper
 
   kafka:
     image: 'bitnami/kafka:latest'
-    hostname: kafka
     ports:
       - '9092:9092'
+      - '9093:9093'
     environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=CLIENT
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-    volumes:
-      - ./data/kafka:/bitnami/kafka
-    networks:
-      main_network:
-        aliases:
-          - kafka
+      - KAFKA_CREATE_TOPICS=jaeger-spans:2:1
+    depends_on:
+      - zookeeper
 
   redis-server:
     image: 'redis:5.0-alpine'
@@ -40,10 +32,6 @@ services:
       - 'redis_data:/data'
     ports:
       - "6379"
-    networks:
-      main_network:
-        aliases:
-          - redis-server
 
   amp-sim-server:
     image: amp-sim-server
@@ -54,10 +42,6 @@ services:
         LAUNCHER_INI: flask_server.ini
     ports:
       - "7599"
-    networks:
-      main_network:
-        aliases:
-          - amp-sim-server
 
   amp-sim-server0:
     image: amp-sim-server0
@@ -68,20 +52,12 @@ services:
         LAUNCHER_INI: flask_server0.ini
     ports:
       - "7590"
-    networks:
-      main_network:
-        aliases:
-          - amp-sim-server0
 
   amp-anomaly-models:
     image: amp-anomaly-models
     build:
       context: ./
       dockerfile: amp_anomaly_models/Dockerfile-anomaly-models
-    networks:
-      main_network:
-        aliases:
-          - amp-anomaly-models
     depends_on:
       - redis-server
 
@@ -92,15 +68,6 @@ services:
       dockerfile: amp_model_api/Dockerfile-model-api
     ports:
       - "7699"
-    networks:
-      main_network:
-        aliases:
-          - amp-model-api
-#     environment:
-#       - JAEGER_SERVICE_NAME=amp-model-api
-#       - JAEGER_AGENT_HOST=jaegertracing
-#       - JAEGER_AGENT_PORT=6831
-#       - JAEGER_SAMPLER_MANAGER_HOST_PORT=jaeger:5778
 
   nginx:
     image: webapp-nginx
@@ -115,10 +82,6 @@ services:
       - amp-sim-server
       - amp-sim-server0
       - amp-model-api
-    networks:
-      main_network:
-        aliases:
-          - nginx
 
   prometheus:
     image: prom/prometheus
@@ -132,10 +95,6 @@ services:
       - "9090"
     ports:
       - "9090:9090"
-    networks:
-      main_network:
-        aliases:
-          - prometheus
 
   grafana:
     image: grafana/grafana
@@ -148,30 +107,27 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=foobar
       - GF_USERS_ALLOW_SIGN_UP=false
-    networks:
-      main_network:
-        aliases:
-          - grafana
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
+  jaeger-collector:
+    image: jaegertracing/jaeger-collector:latest
     ports:
-      - "5775:5775/udp"
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
+      - "14267:14267"
       - "14268:14268"
+      - "14269:14269"
+#     - "14250:14250"
       - "9411:9411"
-    networks:
-      main_network:
-        aliases:
-          - jaegertracing
+    depends_on:
+      - kafka
+    environment:
+      - SPAN_STORAGE_TYPE=kafka
+      - KAFKA_PRODUCER_BROKERS=kafka:9092,kafka:9093
+      - METRICS_BACKEND=prometheus
+      - LOG_LEVEL=debug
+      - KAFKA_PRODUCER_TOPIC=jaeger_spans
+
 
 volumes:
   prometheus_data: {}
   grafana_data: {}
   redis_data: {}
 
-networks:
-  main_network:

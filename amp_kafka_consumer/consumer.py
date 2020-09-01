@@ -4,7 +4,7 @@ from json import loads
 topic_name = 'test'
 
 consumer = KafkaConsumer(topic_name,
-                     bootstrap_servers=['localhost:9092'],
+                     bootstrap_servers=['localhost:9093'],
                      auto_offset_reset='earliest',
                      enable_auto_commit=True,
                      group_id=None,
