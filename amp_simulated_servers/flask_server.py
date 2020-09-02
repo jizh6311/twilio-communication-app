@@ -45,8 +45,8 @@ def initialize_tracer():
         config={
             'sampler': {'type': 'const', 'param': 1},
             'local_agent': {
-                'reporting_host': 'jaegertracing',
-                'reporting_port': '6831',
+                'reporting_host': 'jaeger-agent',
+                 'reporting_port': '6831'
             },
             'logging': True},
         service_name='amp-sim-server',
