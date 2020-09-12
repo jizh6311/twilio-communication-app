@@ -31,7 +31,9 @@
     "babel-preset-expo": "^5.1.0",
     "jest-expo": "^33.0.0",
     "kind-of": "^6.0.3",
-    "minimist": "^1.2.5"
+    "minimist": "^1.2.5",
+    "node-fetch": "^2.6.1",
+    "yargs-parser": "^20.0.0"
   },
   "private": true
 }
